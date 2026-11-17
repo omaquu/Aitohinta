@@ -286,7 +286,9 @@ function displayProductDetails(data, product) {
   // Prices
   const lowestEver = data.lowestEver;
   const avgPrice = data.averagePrice;
-  const currentLowest = data.currentLowest || product.currentLowestPrice;
+  const currentLowest = (data.stores && data.stores.length > 0)
+    ? data.stores[0].price
+    : (data.currentLowest || product.currentLowestPrice);
 
   $("#lowest-price").textContent = lowestEver
     ? formatPrice(lowestEver)

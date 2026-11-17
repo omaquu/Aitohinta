@@ -464,7 +464,9 @@
     const low = details.lowestEver || null;
     const avg = details.averagePrice || null;
     const high = details.highestEver || null;
-    const curLow = details.currentLowest || product.currentLowestPrice || null;
+    const curLow = (details.stores && details.stores.length > 0)
+      ? details.stores[0].price
+      : (details.currentLowest || product.currentLowestPrice || null);
     const stores = details.stores || [];
     const pts = details.historyPoints || [];
     const histUrl = details.historyUrl || product.url || "";
@@ -1118,7 +1120,9 @@
           const best = cached.best;
           const details = cached.details || {};
           const avg = details.averagePrice;
-          const curLow = details.currentLowest || best.currentLowestPrice;
+          const curLow = (details.stores && details.stores.length > 0)
+            ? details.stores[0].price
+            : (details.currentLowest || best.currentLowestPrice);
 
           if (!avg && !curLow) {
             badgeContainer.innerHTML = `

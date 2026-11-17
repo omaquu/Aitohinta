@@ -37,7 +37,8 @@ const FILLER_WORDS = [
   "airfryer", "airfryeri", "kannettava", "kannettavat", "tietokone", "pöytäkone",
   "pelitietokone", "näyttö", "pelinaeyttoe", "oled-näyttö", "monitori",
   "musta", "valkoinen", "hopea", "harmaa", "kuparinvärinen", "kupari", "black", "white", "silver", "grey",
-  "dual", "basket", "xl", "xxl", "tarjous", "uutuus"
+  "dual", "basket", "xl", "xxl", "tarjous", "uutuus",
+  "pelikonsoli", "konsoli", "runko", "e-runko", "d-runko"
 ];
 
 const KNOWN_SERIES = [
@@ -45,7 +46,8 @@ const KNOWN_SERIES = [
   "ideapad", "thinkpad", "legion", "yoga", "thinkbook",
   "zenbook", "vivobook", "rog", "tuf", "expertbook",
   "predator", "nitro", "aspire", "swift",
-  "galaxy", "xperia", "pixel", "iphone", "ipad", "macbook"
+  "galaxy", "xperia", "pixel", "iphone", "ipad", "macbook",
+  "playstation", "ps5", "switch", "xbox"
 ];
 
 // ── Model code extraction ───────────────────────────────────────
@@ -75,6 +77,10 @@ function buildSearchQueries(rawTitle) {
   const queries = [];
   const trimmed = rawTitle.trim();
   queries.push(trimmed);
+
+  if ((/playstation|ps5/i).test(trimmed) && !(/^sony/i).test(trimmed)) {
+    queries.push(`Sony ${trimmed}`);
+  }
 
   // Extract brand
   const mBrand = trimmed.match(/\b(Samsung|Philips|Lenovo|Asus|Apple|Sony|LG|Acer|HP|Dell|Gigabyte|MSI|Bosch|Siemens|DeLonghi|Moccamaster|Electrolux|Xiaomi|OnePlus|Nokia|Whirlpool|Dyson|Roborock|Tefal|OBH Nordica|Braun|Wilfa)\b/i);
@@ -168,7 +174,14 @@ function computeSimilarity(query, resultName) {
 
   // Token Jaccard
   function toTokens(s) {
-    return new Set(s.replace(/[^a-z0-9äöå/]/g, " ").split(/\s+/).filter(Boolean));
+    let cl = s.toLowerCase();
+    for (const w of FILLER_WORDS) {
+      cl = cl.replace(new RegExp(`\\b${w}\\b`, "gi"), " ");
+    }
+    if (cl.includes("playstation") && !cl.includes("sony")) {
+      cl += " sony";
+    }
+    return new Set(cl.replace(/[^a-z0-9äöå/]/g, " ").split(/\s+/).filter(Boolean));
   }
   const t1 = toTokens(qLow);
   const t2 = toTokens(rLow);
@@ -196,7 +209,7 @@ function computeSimilarity(query, resultName) {
   }
   const bgDice = bg1.size + bg2.size > 0 ? ((2 * bgInter) / (bg1.size + bg2.size)) * 100 : 0;
 
-  let score = jaccard * 0.4 + bgDice * 0.4;
+  let score = jaccard * 0.45 + bgDice * 0.45;
 
   if (codeMatch) {
     score = Math.max(score, 92);
@@ -208,8 +221,8 @@ function computeSimilarity(query, resultName) {
   }
 
   // Series match bonus
-  if (qSeries.length > 0 && rSeries.length > 0 && qSeries[0] === rSeries[0]) {
-    score = Math.max(score, 75);
+  if (qSeries.length > 0 && rSeries.length > 0 && qSeries.some((s) => rSeries.includes(s))) {
+    score = Math.max(score, 78);
   }
 
   return Math.min(100, Math.round(score));
@@ -585,8 +598,6 @@ function parseHintaopasProductHtml(html, productUrl) {
 
           if (storesArr.length > 0) {
             details.currentLowest = storesArr[0].price;
-          } else if (details.lowestEver) {
-            details.currentLowest = details.lowestEver;
           }
         }
       } catch (err) {
@@ -731,6 +742,20 @@ async function fetchProductDetails(productUrl, source = "hintafi") {
     detailsCache.set(productUrl, fallbackDetails);
     return fallbackDetails;
   }
+
+  const details = {
+    source: "hintafi",
+    productName: null,
+    lowestEver: null,
+    averagePrice: null,
+    highestEver: null,
+    currentLowest: null,
+    lowest30d: null,
+    stores: [],
+    historyPoints: [],
+    productUrl: baseProdUrl,
+    historyUrl: historyUrl,
+  };
 
   // 1. Fetch Product Page for Store listings with Direct URLs (Hinta.fi)
   try {
@@ -922,10 +947,6 @@ async function fetchProductDetails(productUrl, source = "hintafi") {
     }
   } catch (err) {
     // Timeout or network error
-  }
-
-  if (!details.currentLowest && details.lowestEver) {
-    details.currentLowest = details.lowestEver;
   }
 
   detailsCache.set(productUrl, details);
