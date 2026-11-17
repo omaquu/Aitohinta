@@ -393,22 +393,22 @@
   fill: #047857 !important;
 }
 
-/* Interactive Point Tooltip on Chart */
+/* Interactive Point Tooltip on Chart - Follows cursor directly */
 .hf-point-tooltip {
   position: absolute !important;
-  top: 8px !important;
-  right: 8px !important;
   background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  border-radius: 6px !important;
-  padding: 6px 10px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18) !important;
   font-size: 10px !important;
   line-height: 1.35 !important;
   color: #1e293b !important;
+  min-width: 150px !important;
   max-width: 220px !important;
   pointer-events: none !important;
-  z-index: 10 !important;
+  z-index: 1000 !important;
+  display: none;
 }
 
 .hf-point-title {

@@ -53,7 +53,12 @@ function extractModelCodes(text) {
     if (/\d/.test(t) && /[A-Za-z]/.test(t)) {
       // Exclude resolution / spec tokens like 4K, 240Hz, 65W, 3840x2160
       if (!t.toLowerCase().match(/^(?:4k|8k|\d+hz|\d+w|\d+gb|\d+tb|\d+v|\d+x\d+)$/)) {
-        codes.push(t);
+        if (!codes.includes(t)) codes.push(t);
+        // Also add base code by stripping regional suffix (e.g. S32FG812SU -> S32FG812, 82XQ012QMX -> 82XQ012Q)
+        const base = t.replace(/[A-Za-z]{2}$/, "");
+        if (base.length >= 4 && /\d/.test(base) && /[A-Za-z]/.test(base) && !codes.includes(base)) {
+          codes.push(base);
+        }
       }
     }
   }
@@ -349,7 +354,7 @@ async function executeHintaSearch(productName) {
 async function executeHintaopasSearch(productName) {
   const queries = buildSearchQueries(productName);
 
-  for (const q of queries.slice(0, 4)) {
+  for (const q of queries.slice(0, 7)) {
     try {
       const apiUrl = HINTAOPAS_API_URL + encodeURIComponent(q);
       const res = await fetchWithTimeout(apiUrl, {
@@ -555,13 +560,7 @@ async function executeMultiSourceSearch(productName) {
     ? hintaRes.results[0].matchPercent
     : 0;
 
-  // If Hinta.fi gave a strong match (>= 75%), use it directly
-  if (hintaRes && hintaRes.success && hintaBestMatch >= 75) {
-    searchCache.set(cacheKey, hintaRes);
-    return hintaRes;
-  }
-
-  // 2. Try Hintaopas.fi if Hinta.fi is down, empty, or low match
+  // 2. Also try Hintaopas.fi (always, for fallback history data)
   let opasRes = null;
   try {
     opasRes = await executeHintaopasSearch(productName);
@@ -573,19 +572,33 @@ async function executeMultiSourceSearch(productName) {
     ? opasRes.results[0].matchPercent
     : 0;
 
+  // Helper: attach altResult from the other source for details fallback
+  function attachAlt(primary, altResults) {
+    if (altResults && altResults.results && altResults.results.length > 0) {
+      primary.altResult = altResults.results[0];
+    }
+    return primary;
+  }
+
+  // If Hinta.fi gave a strong match (>= 75%), use it directly
+  if (hintaRes && hintaRes.success && hintaBestMatch >= 75) {
+    searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
+    return hintaRes;
+  }
+
   // Pick whichever has the better match
   if (opasBestMatch > hintaBestMatch && opasBestMatch >= 40) {
-    searchCache.set(cacheKey, opasRes);
+    searchCache.set(cacheKey, attachAlt(opasRes, hintaRes));
     return opasRes;
   }
 
   if (hintaBestMatch >= 40) {
-    searchCache.set(cacheKey, hintaRes);
+    searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
     return hintaRes;
   }
 
   if (opasBestMatch > 0) {
-    searchCache.set(cacheKey, opasRes);
+    searchCache.set(cacheKey, attachAlt(opasRes, hintaRes));
     return opasRes;
   }
 
@@ -604,6 +617,13 @@ async function executeMultiSourceSearch(productName) {
     searchUrl: HINTA_SEARCH_URL + encodeURIComponent(productName),
     usedQuery: productName,
   };
+
+  // Attach alt from whichever wasn't primary
+  if (bestResults.length > 0 && bestResults[0].source === "hintaopas") {
+    attachAlt(finalRes, hintaRes);
+  } else {
+    attachAlt(finalRes, opasRes);
+  }
 
   searchCache.set(cacheKey, finalRes);
   return finalRes;

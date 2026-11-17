@@ -70,7 +70,7 @@
       return /\/product\//.test(location.pathname) || !!document.querySelector('[data-cro="pdp-buy-box"], [data-testid="pdp-buy-box"]');
     }
     if (host.includes("proshop")) {
-      return /\/\d{5,8}$/.test(location.pathname) || !!document.querySelector(".site-currency-attention");
+      return /\/\d{5,8}\/?$/.test(location.pathname) || !!document.querySelector(".site-currency-attention, .site-product-priceRelationsStockContainer");
     }
     if (host.includes("power.fi")) {
       return /\/product\//.test(location.pathname);
@@ -283,13 +283,30 @@
         }
       }
 
-      // ──── 3. Proshop.fi ──────────────────────────────────────
+      // ──── 3. Proshop.fi (Exact live DOM match) ─────────────
       if (host.includes("proshop")) {
-        const priceEl = document.querySelector(".site-currency-attention, [class*='site-currency']");
-        if (priceEl) {
-          storePrice = parsePrice(priceEl.textContent);
-          anchor = priceEl.closest(".site-product-price, .site-product-buy-panel") || priceEl.parentElement || priceEl;
-          return { storePrice, anchor, claimedNorm: null, claimedSavings: null };
+        // Find price elements excluding fixed bottom ribbons
+        const priceEls = Array.from(document.querySelectorAll(".site-currency-attention, .site-currency-wrapper, .site-product-priceRelationsStockContainer, [class*='site-currency']"));
+        const mainPriceEl = priceEls.find((el) => !el.closest(".bottom-ribbon-price, [class*='ribbon']")) || priceEls[0];
+
+        if (mainPriceEl) {
+          const rawPriceEl = mainPriceEl.querySelector(".site-currency-attention") || mainPriceEl;
+          storePrice = parsePrice(rawPriceEl.textContent);
+
+          // Check if there was an expired campaign price or normal price
+          const prevEl = document.querySelector(".site-currency-expired, .site-currency-pre");
+          if (prevEl) {
+            claimedNorm = parsePrice(prevEl.textContent);
+          }
+
+          // Anchor directly at the buy/price container in main view
+          const buyContainer = mainPriceEl.closest(".site-currency-wrapper") ||
+                               mainPriceEl.closest(".site-product-priceRelationsStockContainer, .site-product-stock-price-buy") ||
+                               mainPriceEl;
+
+          anchor = buyContainer || mainPriceEl;
+          log("Proshop buybox found:", { storePrice, claimedNorm, anchorTag: anchor.tagName, anchorClass: anchor.className });
+          return { storePrice, anchor, claimedNorm, claimedSavings };
         }
       }
 
@@ -364,7 +381,8 @@
 
     const price = storePrice || curLow;
     const extUrls = getExternalUrls(product.name || rawQuery);
-    const sourceLabel = product.source === "hintaopas" ? "Hintaopas.fi" : "Hinta.fi";
+    // Brand label - always "Aitohinta"
+    const sourceLabel = "Aitohinta";
 
     // Deal pill & savings
     let dealHtml = "";
@@ -488,7 +506,7 @@
     // Assemble inner HTML
     widget.innerHTML = `
       <div class="hf-mini-header">
-        <span class="hf-mini-logo">💰 ${sourceLabel} Vertailu</span>
+        <span class="hf-mini-logo">💰 Aitohinta</span>
         <span class="hf-mini-badge ${badgeCls}">${match}% vastaavuus</span>
       </div>
 
@@ -528,28 +546,57 @@
       </div>
     `;
 
-    // Tooltip listeners
+    // Tooltip listeners - follow cursor directly
     const chartBox = widget.querySelector(".hf-chart-box");
     const ptTooltip = widget.querySelector("#hf-pt-tooltip");
     if (chartBox && ptTooltip) {
+      const updateTooltipPos = (e) => {
+        const boxRect = chartBox.getBoundingClientRect();
+        const mouseX = e.clientX - boxRect.left;
+        const mouseY = e.clientY - boxRect.top;
+
+        let left = mouseX + 12;
+        let top = mouseY - 15;
+
+        if (left + 195 > boxRect.width) {
+          left = mouseX - 205;
+        }
+        if (left < 5) left = 5;
+        if (top < 5) top = 5;
+
+        ptTooltip.style.left = left + "px";
+        ptTooltip.style.top = top + "px";
+        ptTooltip.style.right = "auto";
+        ptTooltip.style.bottom = "auto";
+      };
+
       widget.querySelectorAll(".hf-chart-dot").forEach((dot) => {
-        dot.addEventListener("mouseenter", () => {
+        dot.addEventListener("mouseenter", (e) => {
           try {
             const data = JSON.parse(dot.getAttribute("data-info"));
             let offersText = "";
             if (data.offers && data.offers.length > 0) {
               offersText = data.offers
-                .slice(0, 4)
+                .slice(0, 5)
                 .map((o) => `<div>• ${esc(o.store)}: <strong>${fmt(o.price)}</strong></div>`)
                 .join("");
             }
             ptTooltip.innerHTML = `
-              <div class="hf-point-title">${esc(data.title)}</div>
-              <div>Alin hinta: <strong>${fmt(data.price)}</strong></div>
-              ${offersText ? `<div class="hf-point-stores-list" style="margin-top:3px;">${offersText}</div>` : ""}
+              <div class="hf-point-title">📅 ${esc(data.title)}</div>
+              <div style="font-size:11px; margin-bottom:2px;">Alin hinta: <strong style="color:#059669;">${fmt(data.price)}</strong></div>
+              ${offersText ? `<div class="hf-point-stores-list" style="margin-top:4px; padding-top:3px; border-top:1px solid #f1f5f9;">${offersText}</div>` : ""}
             `;
+            updateTooltipPos(e);
             ptTooltip.style.display = "block";
           } catch (err) {}
+        });
+
+        dot.addEventListener("mousemove", (e) => {
+          updateTooltipPos(e);
+        });
+
+        dot.addEventListener("mouseleave", () => {
+          ptTooltip.style.display = "none";
         });
       });
       chartBox.addEventListener("mouseleave", () => { ptTooltip.style.display = "none"; });
@@ -647,6 +694,42 @@
         details = detailsRes && detailsRes.success ? detailsRes.data : {};
       } catch (e) {
         log("getProductDetails error:", e);
+      }
+
+      // Dual-source fallback: if primary returned no/few history points, try the other source
+      const altResult = searchRes.altResult;
+      if (altResult && altResult.url && altResult.source !== best.source) {
+        const hasGoodHistory = details.historyPoints && details.historyPoints.length >= 2;
+        if (!hasGoodHistory) {
+          log("Primary source has no history, trying fallback source:", altResult.source, altResult.url);
+          try {
+            const altDetailsRes = await browser.runtime.sendMessage({
+              action: "getProductDetails",
+              url: altResult.url,
+              source: altResult.source,
+            });
+            const altDetails = altDetailsRes && altDetailsRes.success ? altDetailsRes.data : {};
+            // Merge: take history data from alt if it has more
+            if (altDetails.historyPoints && altDetails.historyPoints.length > (details.historyPoints || []).length) {
+              log("Using fallback history from", altResult.source, ":", altDetails.historyPoints.length, "points");
+              details.historyPoints = altDetails.historyPoints;
+              details.lowestEver = altDetails.lowestEver || details.lowestEver;
+              details.highestEver = altDetails.highestEver || details.highestEver;
+              details.averagePrice = altDetails.averagePrice || details.averagePrice;
+              // Keep historyUrl pointing to the source that actually has history
+              details.historyUrl = altResult.url;
+            }
+            // Also merge stores if primary had none
+            if ((!details.stores || details.stores.length === 0) && altDetails.stores && altDetails.stores.length > 0) {
+              details.stores = altDetails.stores;
+            }
+            if (!details.currentLowest && altDetails.currentLowest) {
+              details.currentLowest = altDetails.currentLowest;
+            }
+          } catch (e) {
+            log("Fallback getProductDetails error:", e);
+          }
+        }
       }
 
       // Fallback fields if details call returned partial data
