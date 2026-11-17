@@ -1,0 +1,884 @@
+/* Hinta.fi & Hintaopas Hintatarkistaja - Styles */
+
+/* ── Product Page Widget (Buy Box next to or below Price) ── */
+#hintafi-price-widget {
+  all: initial;
+  display: block !important;
+  vertical-align: top !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  min-width: 240px !important;
+  margin: 10px 0 !important;
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  color: #1f2937 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+  box-sizing: border-box !important;
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+#hintafi-price-widget * {
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+}
+
+/* Header in Compact Badge */
+.hf-mini-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 6px !important;
+  gap: 6px !important;
+}
+
+.hf-mini-logo {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #059669 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.hf-mini-badge {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 2px 7px !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+}
+
+.hf-badge-high {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+}
+.hf-badge-med {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+.hf-badge-low {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+/* Loading state */
+.hf-mini-loading {
+  font-size: 11px !important;
+  color: #6b7280 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 0 !important;
+}
+
+.hf-mini-spinner {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid #e5e7eb !important;
+  border-top-color: #10b981 !important;
+  border-radius: 50% !important;
+  animation: hfSpin 0.7s linear infinite !important;
+  display: inline-block !important;
+}
+
+@keyframes hfSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Deal Pill */
+.hf-deal-pill {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  margin-bottom: 6px !important;
+}
+
+.hf-deal-pill.discount {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.hf-deal-pill.fake {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+}
+
+.hf-deal-pill.all-time-low {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #10b981 !important;
+}
+
+.hf-arrow-down {
+  color: #059669 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.hf-arrow-up {
+  color: #dc2626 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+/* Price Details List */
+.hf-mini-details {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.hf-mini-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+}
+
+.hf-mini-label {
+  color: #6b7280 !important;
+}
+
+.hf-mini-val {
+  font-weight: 700 !important;
+  color: #111827 !important;
+}
+
+.hf-mini-val.strikethrough {
+  text-decoration: line-through !important;
+  color: #9ca3af !important;
+  font-weight: normal !important;
+  margin-left: 4px !important;
+}
+
+.hf-mini-val.green {
+  color: #059669 !important;
+}
+
+.hf-mini-val.red {
+  color: #dc2626 !important;
+}
+
+/* Compact Forecast Row with Hoverable Info Tooltip */
+.hf-compact-forecast {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 6px !important;
+  padding: 5px 8px !important;
+  background: #f0fdf4 !important;
+  border: 1px solid #bbf7d0 !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  color: #166534 !important;
+}
+
+.hf-forecast-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-weight: 600 !important;
+}
+
+.hf-info-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  margin-left: 4px !important;
+  padding: 0 4px !important;
+  border-radius: 50% !important;
+  transition: transform 0.15s !important;
+}
+
+.hf-info-btn:hover {
+  transform: scale(1.15) !important;
+}
+
+/* Tooltip on hovering info button */
+.hf-info-tooltip {
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: #1f2937 !important;
+  color: #f9fafb !important;
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  font-weight: 500 !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(4px) !important;
+  transition: all 0.2s ease !important;
+  z-index: 10000002 !important;
+  pointer-events: none !important;
+}
+
+.hf-info-btn:hover + .hf-info-tooltip,
+.hf-compact-forecast:hover .hf-info-tooltip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+}
+
+/* Comparison Sources Bar (Hintaopas & Vertaa.fi) */
+.hf-sources-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+  padding-top: 6px !important;
+  border-top: 1px solid #f3f4f6 !important;
+  font-size: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.hf-sources-label {
+  color: #6b7280 !important;
+  font-weight: 600 !important;
+}
+
+.hf-source-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 2px 7px !important;
+  background: #f3f4f6 !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  color: #2563eb !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  transition: all 0.15s !important;
+}
+
+.hf-source-pill:hover {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+/* Not Found / Manual Comparison Box */
+.hf-not-found-box {
+  padding: 6px 0 !important;
+}
+
+.hf-not-found-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #d97706 !important;
+  margin-bottom: 4px !important;
+}
+
+.hf-not-found-desc {
+  font-size: 11px !important;
+  color: #4b5563 !important;
+  margin-bottom: 8px !important;
+}
+
+.hf-not-found-buttons {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+
+.hf-alt-btn {
+  display: block !important;
+  padding: 6px 10px !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  text-decoration: none !important;
+  transition: all 0.15s !important;
+}
+
+.hf-alt-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+/* Hover hint */
+.hf-hover-hint {
+  margin-top: 6px !important;
+  padding-top: 4px !important;
+  border-top: 1px dashed #e5e7eb !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #059669 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  cursor: pointer !important;
+}
+
+/* ── Floating Hover Popover (Graph & Clickable Store Links) ── */
+.hf-popover {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  left: 0 !important;
+  width: 420px !important;
+  max-width: 95vw !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.18), 0 4px 10px rgba(0, 0, 0, 0.06) !important;
+  z-index: 9999999 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(6px) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+#hintafi-price-widget:hover .hf-popover,
+.hf-popover.hf-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.hf-popover-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+/* Interactive SVG Chart Container */
+.hf-chart-box {
+  position: relative !important;
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  padding: 10px !important;
+  margin-bottom: 12px !important;
+}
+
+.hf-chart-dot {
+  cursor: pointer !important;
+  transition: r 0.15s, fill 0.15s !important;
+}
+
+.hf-chart-dot:hover {
+  r: 6.5 !important;
+  fill: #047857 !important;
+}
+
+/* Interactive Point Tooltip on Chart - Follows cursor directly */
+.hf-point-tooltip {
+  position: absolute !important;
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18) !important;
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+  color: #1e293b !important;
+  min-width: 150px !important;
+  max-width: 220px !important;
+  pointer-events: none !important;
+  z-index: 1000 !important;
+  display: none;
+}
+
+.hf-point-title {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-bottom: 2px !important;
+}
+
+.hf-point-stores-list {
+  color: #475569 !important;
+}
+
+.hf-chart-stats {
+  display: flex !important;
+  justify-content: space-between !important;
+  font-size: 10px !important;
+  color: #6b7280 !important;
+  margin-top: 6px !important;
+  padding-top: 4px !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+/* Clickable Stores List inside Popover */
+.hf-popover-stores {
+  margin-bottom: 12px !important;
+}
+
+.hf-popover-stores-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  color: #6b7280 !important;
+  margin-bottom: 6px !important;
+}
+
+.hf-store-link-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 6px 8px !important;
+  background: #f9fafb !important;
+  border: 1px solid #f3f4f6 !important;
+  border-radius: 6px !important;
+  margin-bottom: 4px !important;
+  font-size: 12px !important;
+  text-decoration: none !important;
+  color: #1f2937 !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+
+.hf-store-link-row:hover {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  transform: translateX(2px) !important;
+}
+
+.hf-popover-store-name {
+  font-weight: 600 !important;
+  color: #111827 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.hf-popover-store-price {
+  font-weight: 700 !important;
+  color: #059669 !important;
+}
+
+.hf-popover-store-delivery {
+  font-size: 10px !important;
+  color: #9ca3af !important;
+  margin-left: 4px !important;
+}
+
+.hf-link-icon {
+  font-size: 10px !important;
+  color: #6b7280 !important;
+}
+
+.hf-popover-btn {
+  display: block !important;
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  transition: background 0.15s !important;
+}
+
+.hf-popover-btn:hover {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+
+.hf-popover-service-links {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+
+.hf-popover-btn-alt {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 12px !important;
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s !important;
+}
+
+.hf-popover-btn-alt:hover {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+  border-color: #9ca3af !important;
+}
+
+/* ── Listing Page / Category Card Badges ── */
+.hf-listing-badge-container {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  clear: both !important;
+  position: relative !important;
+  margin: 6px 0 4px 0 !important;
+  z-index: 50 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+.hf-listing-badge-container:hover,
+.hf-listing-badge-container.hf-active,
+.hf-listing-badge-container.hf-locked {
+  z-index: 999999 !important;
+}
+
+.hf-listing-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  padding: 4px 10px !important;
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #111827 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.hf-listing-pill:hover,
+.hf-listing-badge-container.hf-active .hf-listing-pill,
+.hf-listing-badge-container.hf-locked .hf-listing-pill {
+  background: #f0fdf4 !important;
+  border-color: #059669 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+}
+
+.hf-listing-brand {
+  font-weight: 700 !important;
+  color: #047857 !important;
+}
+
+.hf-listing-curlow {
+  color: #111827 !important;
+}
+
+.hf-listing-best-here {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.hf-listing-cheaper {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.hf-listing-pct-badge {
+  display: inline-block !important;
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  vertical-align: middle !important;
+}
+
+.hf-listing-norm {
+  color: #4b5563 !important;
+  font-weight: 500 !important;
+}
+
+.hf-listing-discount {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.hf-listing-info-icon {
+  font-size: 10px !important;
+  color: #4b5563 !important;
+  background: #f3f4f6 !important;
+  padding: 2px 6px !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  margin-left: auto !important;
+  font-weight: 600 !important;
+  opacity: 0.9 !important;
+}
+
+/* Hover popover for listing cards */
+.hf-listing-popover {
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  left: 0 !important;
+  width: 310px !important;
+  max-width: 92vw !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06) !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+  color: #1f2937 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(4px) !important;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease !important;
+  z-index: 999999 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Invisible bridge so moving cursor between pill and popover never drops hover */
+.hf-listing-popover::after {
+  content: "" !important;
+  position: absolute !important;
+  left: -15px !important;
+  right: -15px !important;
+  bottom: -15px !important;
+  height: 25px !important;
+  background: transparent !important;
+  pointer-events: auto !important;
+}
+
+.hf-listing-popover.hf-popover-below {
+  bottom: auto !important;
+  top: calc(100% + 6px) !important;
+}
+
+.hf-listing-popover.hf-popover-below::after {
+  bottom: auto !important;
+  top: -15px !important;
+}
+
+.hf-listing-popover.hf-popover-open,
+.hf-listing-badge-container:hover .hf-listing-popover {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.hf-listing-popover-title {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+  padding-bottom: 6px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+}
+
+.hf-listing-popover-name {
+  font-weight: 700 !important;
+  color: #111827 !important;
+  line-height: 1.3 !important;
+  max-width: 220px !important;
+}
+
+.hf-listing-popover-badge {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  padding: 1px 6px !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.hf-listing-popover-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  margin-bottom: 6px !important;
+}
+
+.hf-listing-stores {
+  margin: 6px 0 !important;
+  border-top: 1px solid #f3f4f6 !important;
+  padding-top: 6px !important;
+}
+
+.hf-listing-stores-title {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #6b7280 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  margin-bottom: 4px !important;
+}
+
+.hf-listing-store-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 4px 8px !important;
+  margin-bottom: 3px !important;
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+  color: #111827 !important;
+  font-size: 11px !important;
+  transition: all 0.12s ease !important;
+}
+
+.hf-listing-store-row:hover {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+  transform: translateX(2px) !important;
+}
+
+.hf-listing-store-name {
+  font-weight: 600 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 180px !important;
+}
+
+.hf-listing-store-price {
+  font-weight: 700 !important;
+  color: #059669 !important;
+  margin-left: 6px !important;
+  white-space: nowrap !important;
+}
+
+.hf-listing-links-row {
+  margin-top: 8px !important;
+  border-top: 1px solid #f3f4f6 !important;
+  padding-top: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.hf-listing-main-btn {
+  display: block !important;
+  text-align: center !important;
+  padding: 5px 10px !important;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-decoration: none !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: all 0.15s ease !important;
+}
+
+.hf-listing-main-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+}
+
+.hf-listing-sub-links {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+/* ── Listing "Hae hinta" Button ── */
+.hf-listing-fetch-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #047857 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  line-height: 1.4 !important;
+  margin-top: 2px !important;
+}
+
+.hf-listing-fetch-btn:hover {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important;
+  border-color: #059669 !important;
+  color: #065f46 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+.hf-listing-fetch-btn:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.15) !important;
+}
+
+.hf-listing-fetch-btn:disabled {
+  cursor: wait !important;
+  opacity: 0.75 !important;
+}
+
+.hf-listing-btn-loading {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #6b7280 !important;
+}
+
+.hf-listing-not-found {
+  border-color: #d1d5db !important;
+  background: #f9fafb !important;
+}
+
+.hf-listing-link-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 6px !important;
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2563eb !important;
+  text-decoration: none !important;
+  transition: all 0.15s !important;
+}
+
+.hf-listing-link-btn:hover {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}

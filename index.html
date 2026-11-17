@@ -248,6 +248,58 @@
       box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
     }
 
+    .btn-chrome {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-chrome:hover {
+      box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5);
+    }
+
+    .btn-header-chrome {
+      background: #2563eb !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+    }
+
+    .btn-header-chrome:hover {
+      background: #1d4ed8 !important;
+    }
+
+    .install-tab-btn {
+      padding: 10px 22px;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .install-tab-btn:hover {
+      color: var(--text-main);
+      border-color: var(--border-subtle);
+    }
+
+    .install-tab-btn.active#tab-btn-chrome {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 2px 12px rgba(37, 99, 235, 0.35);
+    }
+
+    .install-tab-btn.active#tab-btn-firefox {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 12px var(--primary-glow);
+    }
+
     .btn-secondary {
       display: inline-flex;
       align-items: center;
@@ -618,7 +670,8 @@
             <span id="theme-icon">🌙</span> <span id="theme-text">Tumma</span>
           </button>
         </li>
-        <li><a href="aitohinta-firefox.zip" class="btn-header">Lataa Firefoxille</a></li>
+        <li><a href="aitohinta-chrome.zip" class="btn-header btn-header-chrome" download>🌐 Chrome (.zip)</a></li>
+        <li><a href="aitohinta-firefox.zip" class="btn-header" download>🦊 Firefox (.zip)</a></li>
       </ul>
     </div>
   </header>
@@ -627,7 +680,7 @@
   <section class="hero">
     <div class="container">
       <div class="pill-badge">
-        ✨ Uusi versio 1.4.1 julkaistu
+        ✨ Uusi versio 1.4.1 julkaistu • Nyt myös Chromelle!
       </div>
       <h1>Paljasta <span>feikkialennukset</span> suoraan verkkokaupoissa.</h1>
       <p>
@@ -635,13 +688,12 @@
       </p>
 
       <div class="cta-group">
-        <a href="aitohinta-firefox.zip" class="btn-primary" download>
-          🦊 Lataa Firefox-laajennus (.zip)
+        <a href="aitohinta-chrome.zip" class="btn-primary btn-chrome" download>
+          🌐 Lataa Chromelle (.zip)
         </a>
-        <div class="chrome-badge">
-          <span>🌐 Chrome-laajennus:</span>
-          <span class="tag">Tulossa pian</span>
-        </div>
+        <a href="aitohinta-firefox.zip" class="btn-primary" download>
+          🦊 Lataa Firefoxille (.zip)
+        </a>
         <a href="https://github.com/omaquu/Aitohinta" target="_blank" rel="noopener noreferrer" class="btn-secondary">
           ⭐ Katso GitHubissa
         </a>
@@ -792,17 +844,55 @@
   <section class="install-section" id="install">
     <div class="container">
       <div class="section-title">
-        <h2>Helppo asennus Firefoxiin (1 minuutti)</h2>
-        <p>Voit ottaa laajennuksen heti käyttöön kehittäjätilassa.</p>
+        <h2>Helppo asennus selaimeesi (1 minuutti)</h2>
+        <p>Valitse selaimesi alta ja ota Aitohinta heti käyttöön.</p>
       </div>
 
-      <div class="steps-grid">
+      <!-- Browser Tabs -->
+      <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; flex-wrap: wrap;">
+        <button id="tab-btn-chrome" class="install-tab-btn active" onclick="switchInstallTab('chrome')">
+          🌐 Google Chrome / Brave / Edge
+        </button>
+        <button id="tab-btn-firefox" class="install-tab-btn" onclick="switchInstallTab('firefox')">
+          🦊 Mozilla Firefox
+        </button>
+      </div>
+
+      <!-- Chrome Steps -->
+      <div id="steps-chrome" class="steps-grid">
+        <div class="step-card">
+          <div class="step-number" style="background:#2563eb; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);">1</div>
+          <h4>Lataa ja pura Chrome-paketti</h4>
+          <p>Lataa <strong>aitohinta-chrome.zip</strong> alla olevasta napista ja pura se haluamaasi kansioon tietokoneellasi.</p>
+          <a href="aitohinta-chrome.zip" class="btn-primary btn-chrome" style="margin-top: 14px; padding: 10px 18px; font-size: 14px;" download>
+            📥 Lataa Chrome .zip
+          </a>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number" style="background:#2563eb; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);">2</div>
+          <h4>Avaa laajennussivu &amp; Kehittäjätila</h4>
+          <p>Kirjoita Chromen tai Braven osoiteriville:</p>
+          <code>chrome://extensions/</code>
+          <p style="margin-top: 8px;">Kytke oikeasta yläkulmasta päälle <strong>"Kehittäjätila" (Developer mode)</strong>.</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number" style="background:#2563eb; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);">3</div>
+          <h4>Lataa purettu laajennus</h4>
+          <p>Klikkaa vasemmasta yläkulmasta <strong>"Lataa purettu" (Load unpacked)</strong> ja valitse purkamasi <code>aitohinta-chrome</code> -kansio.</p>
+          <p style="margin-top: 8px; color: #10b981; font-weight: 700;">Valmis! Aitohinta on nyt aktiivinen.</p>
+        </div>
+      </div>
+
+      <!-- Firefox Steps -->
+      <div id="steps-firefox" class="steps-grid" style="display: none;">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h4>Lataa ja pura paketti</h4>
+          <h4>Lataa ja pura Firefox-paketti</h4>
           <p>Lataa <strong>aitohinta-firefox.zip</strong> alla olevasta napista ja pura se haluamaasi kansioon tietokoneellasi.</p>
           <a href="aitohinta-firefox.zip" class="btn-primary" style="margin-top: 14px; padding: 10px 18px; font-size: 14px;" download>
-            📥 Lataa .zip
+            📥 Lataa Firefox .zip
           </a>
         </div>
 
@@ -816,10 +906,10 @@
 
         <div class="step-card">
           <div class="step-number">3</div>
-          <h4>Lataa lisäosa</h4>
+          <h4>Lataa tilapäinen lisäosa</h4>
           <p>Klikkaa <strong>"Lataa tilapäinen lisäosa…"</strong> ja valitse purkamastasi kansiosta tiedosto:</p>
           <code>manifest.json</code>
-          <p style="margin-top: 8px;">Valmis! Laajennus on nyt aktiivinen.</p>
+          <p style="margin-top: 8px; color: #10b981; font-weight: 700;">Valmis! Aitohinta on nyt aktiivinen.</p>
         </div>
       </div>
     </div>
@@ -862,6 +952,28 @@
         if (themeText) themeText.textContent = theme === 'dark' ? 'Tumma' : 'Vaalea';
       }
     })();
+
+    // Installation Tab Switcher
+    function switchInstallTab(browserName) {
+      const chromeTab = document.getElementById('steps-chrome');
+      const ffTab = document.getElementById('steps-firefox');
+      const chromeBtn = document.getElementById('tab-btn-chrome');
+      const ffBtn = document.getElementById('tab-btn-firefox');
+
+      if (!chromeTab || !ffTab) return;
+
+      if (browserName === 'chrome') {
+        chromeTab.style.display = 'grid';
+        ffTab.style.display = 'none';
+        chromeBtn.classList.add('active');
+        ffBtn.classList.remove('active');
+      } else {
+        chromeTab.style.display = 'none';
+        ffTab.style.display = 'grid';
+        ffBtn.classList.add('active');
+        chromeBtn.classList.remove('active');
+      }
+    }
   </script>
 
 </body>

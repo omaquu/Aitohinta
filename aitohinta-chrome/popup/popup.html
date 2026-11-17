@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">💰</div>
+      <h1>Aitohinta</h1>
+      <p class="subtitle">Hintatarkistaja &amp; feikkialennusten paljastin</p>
+    </div>
+
+    <!-- Input section -->
+    <div id="input-section" class="section">
+      <div class="input-group">
+        <input type="text" id="product-input" placeholder="Tuotteen nimi...">
+        <button id="search-btn" class="btn btn-primary">🔍 Hae</button>
+      </div>
+      <button id="auto-detect-btn" class="btn btn-secondary btn-full">
+        🔎 Tunnista tuote sivulta automaattisesti
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="section hidden">
+      <div class="spinner"></div>
+      <p>Haetaan hintoja hinta.fi:stä...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-section" class="section hidden">
+      <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <span id="error-message"></span>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-section" class="section hidden">
+
+      <!-- Current page price -->
+      <div id="current-price-box" class="price-box current hidden">
+        <div class="price-label">Kaupan hinta nyt</div>
+        <div class="price-value" id="current-price-value">-</div>
+        <div class="price-source" id="current-price-source"></div>
+      </div>
+
+      <!-- Search results list -->
+      <div id="search-results" class="results-list"></div>
+
+      <!-- Selected product details -->
+      <div id="product-details" class="hidden">
+        <div class="match-info">
+          <span class="match-label">Vastaavuus:</span>
+          <span class="match-badge" id="match-percent">-</span>
+        </div>
+
+        <div class="price-grid">
+          <div class="price-box lowest">
+            <div class="price-label">📉 Alin hinta koskaan</div>
+            <div class="price-value" id="lowest-price">-</div>
+          </div>
+          <div class="price-box average">
+            <div class="price-label">📊 Keskihinta</div>
+            <div class="price-value" id="average-price">-</div>
+          </div>
+          <div class="price-box current-lowest">
+            <div class="price-label">🏷️ Halvin nyt</div>
+            <div class="price-value" id="current-lowest-price">-</div>
+          </div>
+        </div>
+
+        <!-- Fake sale alert -->
+        <div id="fake-sale-alert" class="alert alert-warning hidden">
+          <span class="alert-icon">🚨</span>
+          <span id="fake-sale-text"></span>
+        </div>
+
+        <!-- Real deal alert -->
+        <div id="real-deal-alert" class="alert alert-success hidden">
+          <span class="alert-icon">✅</span>
+          <span id="real-deal-text"></span>
+        </div>
+
+        <!-- Store list -->
+        <div id="stores-section" class="hidden">
+          <h3>Kaupat ja hinnat</h3>
+          <div id="stores-list" class="stores-list"></div>
+        </div>
+
+        <!-- Open hinta.fi -->
+        <a id="open-hintafi" href="#" class="btn btn-primary btn-full" target="_blank">
+          📈 Avaa koko hintahistoria hinta.fi:ssä
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Älä anna kauppojen huijata – tarkista oikea hinta! 🔥</p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

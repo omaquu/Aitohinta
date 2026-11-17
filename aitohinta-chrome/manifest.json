@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Aitohinta - Hintatarkistaja & Hintavertailu",
+  "version": "1.4.1",
+  "description": "Paljastaa feikkialennukset, näyttää oikean normihinnan, hintakehityksen ja vertaa suoraan Hinta.fi-, Hintaopas- ja Vertaa.fi-palveluihin.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-96.png"
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_icon": {
+      "48": "icons/icon-48.png"
+    },
+    "default_title": "Aitohinta",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.gigantti.fi/*",
+        "*://*.verkkokauppa.com/*",
+        "*://*.power.fi/*",
+        "*://*.dustinhome.fi/*",
+        "*://*.jimms.fi/*",
+        "*://*.multitronic.fi/*",
+        "*://*.proshop.fi/*",
+        "*://*.electronic.fi/*",
+        "*://*.cdon.fi/*",
+        "*://*.amazon.fi/*",
+        "*://*.amazon.de/*",
+        "*://*.amazon.com/*",
+        "*://*.elisa.fi/*",
+        "*://*.dna.fi/*",
+        "*://*.telia.fi/*",
+        "*://*.prisma.fi/*",
+        "*://*.tokmanni.fi/*"
+      ],
+      "js": ["content/content.js"],
+      "css": ["content/inject.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  }
+}

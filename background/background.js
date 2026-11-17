@@ -3,6 +3,10 @@
 // Features: AbortController timeouts, in-memory caching, series conflict detection,
 // historical store offers parsing, and direct store links.
 
+if (typeof browser === "undefined") {
+  globalThis.browser = globalThis.chrome;
+}
+
 const HINTA_BASE = "https://hinta.fi";
 const HINTA_SEARCH_URL = "https://hinta.fi/haku?q=";
 const HINTAOPAS_SEARCH_URL = "https://hintaopas.fi/search?query=";
@@ -224,28 +228,81 @@ function parsePrice(text) {
 
 // ── Parse Hinta.fi Search Results ───────────────────────────────
 function parseHintaSearchResults(html, originalQuery) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
   const results = [];
 
-  const rows = doc.querySelectorAll("tr.hv-prt-tr, tr[class*='hv-prt-tr']");
+  // 1. If DOMParser is available (e.g. Firefox Background Page)
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const rows = doc.querySelectorAll("tr.hv-prt-tr, tr[class*='hv-prt-tr']");
 
-  rows.forEach((row) => {
-    const linkEl = row.querySelector("a.hv-prt_product-a, a[href*='/']");
-    if (!linkEl) return;
+      rows.forEach((row) => {
+        const linkEl = row.querySelector("a.hv-prt_product-a, a[href*='/']");
+        if (!linkEl) return;
 
-    const href = linkEl.getAttribute("href") || "";
-    if (!href.match(/^\/\d+\//) && !href.match(/^https:\/\/hinta\.fi\/\d+\//)) return;
+        const href = linkEl.getAttribute("href") || "";
+        if (!href.match(/^\/\d+\//) && !href.match(/^https:\/\/hinta\.fi\/\d+\//)) return;
+
+        const url = href.startsWith("http") ? href : HINTA_BASE + href;
+        const nameEl = row.querySelector("strong.hv--name, [class*='hv--name']") || linkEl;
+        const name = nameEl.textContent.trim();
+
+        const priceEl = row.querySelector("td.hv--price, [class*='hv--price']");
+        const price = priceEl ? parsePrice(priceEl.textContent) : null;
+
+        const storeCountEl = row.querySelector("td.hv--store-count, [class*='store-count']");
+        const storeCount = storeCountEl ? parseInt(storeCountEl.textContent.trim(), 10) : null;
+
+        if (name.length > 1) {
+          results.push({
+            source: "hintafi",
+            name,
+            url,
+            currentLowestPrice: price,
+            storeCount: storeCount || null,
+            matchPercent: computeSimilarity(originalQuery, name),
+          });
+        }
+      });
+
+      if (results.length > 0) {
+        results.sort((a, b) => b.matchPercent - a.matchPercent);
+        return results;
+      }
+    } catch (e) {
+      // Fall through to regex parser
+    }
+  }
+
+  // 2. Regex parser fallback (Chrome Service Worker where DOMParser is not defined)
+  const rowRegex = /<tr[^>]*class="[^"]*hv-prt-tr[^"]*"([^>]*)>([\s\S]*?)<\/tr>/gi;
+  let match;
+  while ((match = rowRegex.exec(html)) !== null) {
+    const rowAttrs = match[1];
+    const rowHtml = match[2];
+
+    const linkMatch = rowHtml.match(/<a[^>]*href="([^"]+)"[^>]*class="[^"]*hv-prt_product-a[^"]*"/i) ||
+                      rowHtml.match(/<a[^>]*class="[^"]*hv-prt_product-a[^"]*"[^>]*href="([^"]+)"/i) ||
+                      rowHtml.match(/<a[^>]*href="(\/\d+\/[^"]+)"/i);
+    if (!linkMatch) continue;
+
+    const href = linkMatch[1];
+    if (!href.match(/^\/\d+\//) && !href.match(/^https:\/\/hinta\.fi\/\d+\//)) continue;
 
     const url = href.startsWith("http") ? href : HINTA_BASE + href;
-    const nameEl = row.querySelector("strong.hv--name, [class*='hv--name']") || linkEl;
-    const name = nameEl.textContent.trim();
 
-    const priceEl = row.querySelector("td.hv--price, [class*='hv--price']");
-    const price = priceEl ? parsePrice(priceEl.textContent) : null;
+    const nameMatch = rowHtml.match(/<strong[^>]*class="[^"]*hv--name[^"]*"[^>]*>([\s\S]*?)<\/strong>/i) ||
+                      rowHtml.match(/alt="([^"]+)"/i);
+    const name = nameMatch ? nameMatch[1].replace(/<[^>]+>/g, "").trim() : "";
 
-    const storeCountEl = row.querySelector("td.hv--store-count, [class*='store-count']");
-    const storeCount = storeCountEl ? parseInt(storeCountEl.textContent.trim(), 10) : null;
+    const priceAttrMatch = rowAttrs.match(/data-price="([^"]+)"/i);
+    const priceCellMatch = rowHtml.match(/<td[^>]*class="[^"]*hv--price[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+    const priceText = priceAttrMatch ? priceAttrMatch[1] : (priceCellMatch ? priceCellMatch[1].replace(/<[^>]+>/g, "") : "");
+    const price = parsePrice(priceText);
+
+    const storeCountMatch = rowHtml.match(/<td[^>]*class="[^"]*hv--store-count[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+    const storeCount = storeCountMatch ? parseInt(storeCountMatch[1].replace(/<[^>]+>/g, "").trim(), 10) : null;
 
     if (name.length > 1) {
       results.push({
@@ -257,7 +314,7 @@ function parseHintaSearchResults(html, originalQuery) {
         matchPercent: computeSimilarity(originalQuery, name),
       });
     }
-  });
+  }
 
   results.sort((a, b) => b.matchPercent - a.matchPercent);
   return results;
@@ -686,66 +743,120 @@ async function fetchProductDetails(productUrl, source = "hintafi") {
 
     if (prodRes && prodRes.ok) {
       const prodHtml = await prodRes.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(prodHtml, "text/html");
 
-      const h1 = doc.querySelector("h1");
-      if (h1) details.productName = h1.textContent.trim();
+      // Product Title (Regex works in all environments)
+      const h1Match = prodHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match) details.productName = h1Match[1].replace(/<[^>]+>/g, "").trim();
 
       const p30Match = prodHtml.match(/Alin hinta 30 päivän aikana\s*([\d\s,.]+)\s*€/i);
       if (p30Match) details.lowest30d = parsePrice(p30Match[1]);
 
-      const storeRows = doc.querySelectorAll("tr.hv-oft-tr, tr[class*='hv-oft-tr']");
-      storeRows.forEach((row) => {
-        const thStore = row.querySelector("th.hv--store, td.hv--store, [class*='hv--store']");
-        let storeName = "";
-        let storeUrl = "";
+      if (typeof DOMParser !== "undefined") {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(prodHtml, "text/html");
 
-        if (thStore) {
-          const a = thStore.querySelector("a[href]");
-          if (a) {
-            const href = a.getAttribute("href");
-            storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
-            if (a.getAttribute("title")) {
-              const tm = a.getAttribute("title").match(/Siirry kauppaan:\s*(.+)/i);
-              storeName = tm ? tm[1].trim() : a.getAttribute("title").trim();
+          const h1 = doc.querySelector("h1");
+          if (h1 && !details.productName) details.productName = h1.textContent.trim();
+
+          const storeRows = doc.querySelectorAll("tr.hv-oft-tr, tr[class*='hv-oft-tr']");
+          storeRows.forEach((row) => {
+            const thStore = row.querySelector("th.hv--store, td.hv--store, [class*='hv--store']");
+            let storeName = "";
+            let storeUrl = "";
+
+            if (thStore) {
+              const a = thStore.querySelector("a[href]");
+              if (a) {
+                const href = a.getAttribute("href");
+                storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
+                if (a.getAttribute("title")) {
+                  const tm = a.getAttribute("title").match(/Siirry kauppaan:\s*(.+)/i);
+                  storeName = tm ? tm[1].trim() : a.getAttribute("title").trim();
+                }
+              }
+              if (!storeName) {
+                const hiddenSpan = thStore.querySelector(".hv-visual-hide");
+                storeName = hiddenSpan ? hiddenSpan.textContent.trim() : thStore.textContent.trim();
+              }
             }
-          }
-          if (!storeName) {
-            const hiddenSpan = thStore.querySelector(".hv-visual-hide");
-            storeName = hiddenSpan ? hiddenSpan.textContent.trim() : thStore.textContent.trim();
-          }
-        }
 
-        // Also check "Kauppaan" link
-        if (!storeUrl) {
-          const linkTd = row.querySelector("td.hv--link a[href]");
-          if (linkTd) {
-            const href = linkTd.getAttribute("href");
+            if (!storeUrl) {
+              const linkTd = row.querySelector("td.hv--link a[href]");
+              if (linkTd) {
+                const href = linkTd.getAttribute("href");
+                storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
+              }
+            }
+
+            let price = null;
+            const dataPrice = row.getAttribute("data-price");
+            if (dataPrice) {
+              price = parsePrice(dataPrice);
+            } else {
+              const tdPrice = row.querySelector("td.hv--price, [class*='hv--price']");
+              if (tdPrice) price = parsePrice(tdPrice.textContent);
+            }
+
+            const delivery = row.getAttribute("data-delivery-fee") || "";
+
+            if (storeName && price) {
+              details.stores.push({
+                name: storeName,
+                price: price,
+                delivery: delivery,
+                storeUrl: storeUrl || historyUrl,
+              });
+            }
+          });
+        } catch (e) {}
+      } else {
+        // Regex fallback for Chrome Service Worker
+        const oftRegex = /<tr[^>]*class="[^"]*hv-oft-tr[^"]*"([^>]*)>([\s\S]*?)<\/tr>/gi;
+        let oMatch;
+        while ((oMatch = oftRegex.exec(prodHtml)) !== null) {
+          const rowAttrs = oMatch[1];
+          const rowHtml = oMatch[2];
+
+          let storeName = "";
+          let storeUrl = "";
+
+          const titleAttrM = rowHtml.match(/title="Siirry kauppaan:\s*([^"]+)"/i);
+          if (titleAttrM) {
+            storeName = titleAttrM[1].trim();
+          } else {
+            const hideSpanM = rowHtml.match(/<span[^>]*class="[^"]*hv-visual-hide[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+            if (hideSpanM) storeName = hideSpanM[1].replace(/<[^>]+>/g, "").trim();
+          }
+
+          const hrefM = rowHtml.match(/href="([^"]+)"/i);
+          if (hrefM) {
+            const href = hrefM[1];
             storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
           }
-        }
 
-        let price = null;
-        const dataPrice = row.getAttribute("data-price");
-        if (dataPrice) {
-          price = parsePrice(dataPrice);
-        } else {
-          const tdPrice = row.querySelector("td.hv--price, [class*='hv--price']");
-          if (tdPrice) price = parsePrice(tdPrice.textContent);
-        }
+          let price = null;
+          const dataPriceM = rowAttrs.match(/data-price="([^"]+)"/i);
+          if (dataPriceM) {
+            price = parsePrice(dataPriceM[1]);
+          } else {
+            const tdPriceM = rowHtml.match(/<td[^>]*class="[^"]*hv--price[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+            if (tdPriceM) price = parsePrice(tdPriceM[1].replace(/<[^>]+>/g, ""));
+          }
 
-        const delivery = row.getAttribute("data-delivery-fee") || "";
+          const delM = rowAttrs.match(/data-delivery-fee="([^"]+)"/i);
+          const delivery = delM ? delM[1].trim() : "";
 
-        if (storeName && price) {
-          details.stores.push({
-            name: storeName,
-            price: price,
-            delivery: delivery,
-            storeUrl: storeUrl || historyUrl,
-          });
+          if (storeName && price) {
+            details.stores.push({
+              name: storeName,
+              price: price,
+              delivery: delivery,
+              storeUrl: storeUrl || historyUrl,
+            });
+          }
         }
-      });
+      }
 
       if (details.stores.length > 0) {
         details.stores.sort((a, b) => a.price - b.price);

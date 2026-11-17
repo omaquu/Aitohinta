@@ -1,0 +1,950 @@
+// background/background.js
+// Multi-source price comparison: Hinta.fi & Hintaopas.fi
+// Features: AbortController timeouts, in-memory caching, series conflict detection,
+// historical store offers parsing, and direct store links.
+
+if (typeof browser === "undefined") {
+  globalThis.browser = globalThis.chrome;
+}
+
+const HINTA_BASE = "https://hinta.fi";
+const HINTA_SEARCH_URL = "https://hinta.fi/haku?q=";
+const HINTAOPAS_SEARCH_URL = "https://hintaopas.fi/search?query=";
+const HINTAOPAS_API_URL = "https://hintaopas.fi/api/search-suggestions?q=";
+
+// In-memory cache to prevent repeated fetches
+const searchCache = new Map();
+const detailsCache = new Map();
+
+// Strict fetch with AbortController timeout (3.5s)
+async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const FILLER_WORDS = [
+  "tuplakorilla", "tuplakori", "kaksoiskori", "kaksoiskorilla",
+  "ilmakypsennin", "kiertoilmakypsennin", "kuumakiertoilmakypsennin",
+  "airfryer", "airfryeri", "kannettava", "kannettavat", "tietokone", "pöytäkone",
+  "pelitietokone", "näyttö", "pelinaeyttoe", "oled-näyttö", "monitori",
+  "musta", "valkoinen", "hopea", "harmaa", "kuparinvärinen", "kupari", "black", "white", "silver", "grey",
+  "dual", "basket", "xl", "xxl", "tarjous", "uutuus"
+];
+
+const KNOWN_SERIES = [
+  "odyssey", "viewfinity", "smart monitor",
+  "ideapad", "thinkpad", "legion", "yoga", "thinkbook",
+  "zenbook", "vivobook", "rog", "tuf", "expertbook",
+  "predator", "nitro", "aspire", "swift",
+  "galaxy", "xperia", "pixel", "iphone", "ipad", "macbook"
+];
+
+// ── Model code extraction ───────────────────────────────────────
+function extractModelCodes(text) {
+  if (!text) return [];
+  const tokens = text.match(/[A-Za-z0-9/-]{3,}/g) || [];
+  const codes = [];
+  for (const t of tokens) {
+    if (/\d/.test(t) && /[A-Za-z]/.test(t)) {
+      // Exclude resolution / spec tokens like 4K, 240Hz, 65W, 3840x2160
+      if (!t.toLowerCase().match(/^(?:4k|8k|\d+hz|\d+w|\d+gb|\d+tb|\d+v|\d+x\d+)$/)) {
+        if (!codes.includes(t)) codes.push(t);
+        // Also add base code by stripping regional suffix (e.g. S32FG812SU -> S32FG812, 82XQ012QMX -> 82XQ012Q)
+        const base = t.replace(/[A-Za-z]{2}$/, "");
+        if (base.length >= 4 && /\d/.test(base) && /[A-Za-z]/.test(base) && !codes.includes(base)) {
+          codes.push(base);
+        }
+      }
+    }
+  }
+  return codes;
+}
+
+// ── Smart Query Builder ─────────────────────────────────────────
+function buildSearchQueries(rawTitle) {
+  if (!rawTitle) return [];
+  const queries = [];
+  const trimmed = rawTitle.trim();
+  queries.push(trimmed);
+
+  // Extract brand
+  const mBrand = trimmed.match(/\b(Samsung|Philips|Lenovo|Asus|Apple|Sony|LG|Acer|HP|Dell|Gigabyte|MSI|Bosch|Siemens|DeLonghi|Moccamaster|Electrolux|Xiaomi|OnePlus|Nokia|Whirlpool|Dyson|Roborock|Tefal|OBH Nordica|Braun|Wilfa)\b/i);
+  const brand = mBrand ? mBrand[1] : trimmed.split(/\s+/)[0];
+
+  // Extract series if any
+  const seriesFound = KNOWN_SERIES.filter((s) => trimmed.toLowerCase().includes(s));
+  const seriesName = seriesFound.length > 0 ? seriesFound[0] : "";
+
+  // Extract model codes
+  const codes = extractModelCodes(trimmed);
+
+  // 1. Brand + Series + Code
+  for (const c of codes) {
+    if (seriesName) {
+      queries.push(`${brand} ${seriesName} ${c}`);
+    }
+    queries.push(`${brand} ${c}`);
+    queries.push(c);
+    if (c.includes("/")) {
+      queries.push(`${brand} ${c.split("/")[0]}`);
+      queries.push(c.split("/")[0]);
+    }
+  }
+
+  // 2. Brand + Series + key descriptor
+  if (seriesName) {
+    queries.push(`${brand} ${seriesName}`);
+    const mSub = trimmed.match(/(?:oled\s*g\d+|g\d+|slim\s*\d+|flip|fold)/i);
+    if (mSub) {
+      queries.push(`${brand} ${seriesName} ${mSub[0]}`);
+    }
+  }
+
+  // 3. Cleaned title
+  let cleaned = trimmed;
+  for (const w of FILLER_WORDS) {
+    cleaned = cleaned.replace(new RegExp(`\\b${w}\\b`, "gi"), " ");
+  }
+  cleaned = cleaned.replace(/[()[\],"-]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length > 3 && !queries.includes(cleaned)) {
+    queries.push(cleaned);
+  }
+
+  // 4. First 4 words
+  const words = cleaned.split(" ").filter((w) => w.length > 1);
+  if (words.length > 3) {
+    const shortQ = words.slice(0, 4).join(" ");
+    if (!queries.includes(shortQ)) queries.push(shortQ);
+  }
+
+  return [...new Set(queries)].filter((q) => q && q.length >= 2);
+}
+
+// ── Smart Similarity with Series Conflict Detection ────────────
+function computeSimilarity(query, resultName) {
+  if (!query || !resultName) return 0;
+  const qLow = query.toLowerCase();
+  const rLow = resultName.toLowerCase();
+
+  // Severe penalty for series conflict (e.g. Odyssey vs ViewFinity)
+  const qSeries = KNOWN_SERIES.filter((s) => qLow.includes(s));
+  const rSeries = KNOWN_SERIES.filter((s) => rLow.includes(s));
+  if (qSeries.length > 0 && rSeries.length > 0) {
+    const hasCommon = qSeries.some((s) => rSeries.includes(s));
+    if (!hasCommon) {
+      return 15; // Conflict! E.g. ViewFinity when user wants Odyssey
+    }
+  }
+
+  const qCodes = extractModelCodes(query).map((c) => c.toLowerCase());
+  const rCodes = extractModelCodes(resultName).map((c) => c.toLowerCase());
+
+  let codeMatch = false;
+  let partialCodeMatch = false;
+
+  if (qCodes.length > 0 && rCodes.length > 0) {
+    for (const qc of qCodes) {
+      for (const rc of rCodes) {
+        if (qc === rc) {
+          codeMatch = true;
+          break;
+        }
+        if (qc.startsWith(rc) || rc.startsWith(qc)) {
+          partialCodeMatch = true;
+        }
+      }
+      if (codeMatch) break;
+    }
+  }
+
+  // Token Jaccard
+  function toTokens(s) {
+    return new Set(s.replace(/[^a-z0-9äöå/]/g, " ").split(/\s+/).filter(Boolean));
+  }
+  const t1 = toTokens(qLow);
+  const t2 = toTokens(rLow);
+  let inter = 0;
+  for (const t of t1) {
+    if (t2.has(t)) inter++;
+  }
+  const union = new Set([...t1, ...t2]).size;
+  const jaccard = union > 0 ? (inter / union) * 100 : 0;
+
+  // Bigrams
+  function bigrams(s) {
+    const cl = s.replace(/\s+/g, "");
+    const set = new Set();
+    for (let i = 0; i < cl.length - 1; i++) {
+      set.add(cl.substring(i, i + 2));
+    }
+    return set;
+  }
+  const bg1 = bigrams(qLow);
+  const bg2 = bigrams(rLow);
+  let bgInter = 0;
+  for (const b of bg1) {
+    if (bg2.has(b)) bgInter++;
+  }
+  const bgDice = bg1.size + bg2.size > 0 ? ((2 * bgInter) / (bg1.size + bg2.size)) * 100 : 0;
+
+  let score = jaccard * 0.4 + bgDice * 0.4;
+
+  if (codeMatch) {
+    score = Math.max(score, 92);
+  } else if (partialCodeMatch) {
+    score = Math.max(score, 82);
+  } else if (qCodes.length > 0 && !codeMatch && !partialCodeMatch) {
+    // Query had a specific model code, but result didn't match it
+    score = Math.min(score, 65);
+  }
+
+  // Series match bonus
+  if (qSeries.length > 0 && rSeries.length > 0 && qSeries[0] === rSeries[0]) {
+    score = Math.max(score, 75);
+  }
+
+  return Math.min(100, Math.round(score));
+}
+
+// ── Price parser ────────────────────────────────────────────────
+function parsePrice(text) {
+  if (!text) return null;
+  const match = String(text).match(/(\d+[\s\u00a0]*\d*[\.,]\d{2}|\d+)\s*€?/);
+  if (match) {
+    const cleaned = match[1].replace(/[\s\u00a0]/g, "").replace(",", ".");
+    return parseFloat(cleaned);
+  }
+  return null;
+}
+
+// ── Parse Hinta.fi Search Results ───────────────────────────────
+function parseHintaSearchResults(html, originalQuery) {
+  const results = [];
+
+  // 1. If DOMParser is available (e.g. Firefox Background Page)
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const rows = doc.querySelectorAll("tr.hv-prt-tr, tr[class*='hv-prt-tr']");
+
+      rows.forEach((row) => {
+        const linkEl = row.querySelector("a.hv-prt_product-a, a[href*='/']");
+        if (!linkEl) return;
+
+        const href = linkEl.getAttribute("href") || "";
+        if (!href.match(/^\/\d+\//) && !href.match(/^https:\/\/hinta\.fi\/\d+\//)) return;
+
+        const url = href.startsWith("http") ? href : HINTA_BASE + href;
+        const nameEl = row.querySelector("strong.hv--name, [class*='hv--name']") || linkEl;
+        const name = nameEl.textContent.trim();
+
+        const priceEl = row.querySelector("td.hv--price, [class*='hv--price']");
+        const price = priceEl ? parsePrice(priceEl.textContent) : null;
+
+        const storeCountEl = row.querySelector("td.hv--store-count, [class*='store-count']");
+        const storeCount = storeCountEl ? parseInt(storeCountEl.textContent.trim(), 10) : null;
+
+        if (name.length > 1) {
+          results.push({
+            source: "hintafi",
+            name,
+            url,
+            currentLowestPrice: price,
+            storeCount: storeCount || null,
+            matchPercent: computeSimilarity(originalQuery, name),
+          });
+        }
+      });
+
+      if (results.length > 0) {
+        results.sort((a, b) => b.matchPercent - a.matchPercent);
+        return results;
+      }
+    } catch (e) {
+      // Fall through to regex parser
+    }
+  }
+
+  // 2. Regex parser fallback (Chrome Service Worker where DOMParser is not defined)
+  const rowRegex = /<tr[^>]*class="[^"]*hv-prt-tr[^"]*"([^>]*)>([\s\S]*?)<\/tr>/gi;
+  let match;
+  while ((match = rowRegex.exec(html)) !== null) {
+    const rowAttrs = match[1];
+    const rowHtml = match[2];
+
+    const linkMatch = rowHtml.match(/<a[^>]*href="([^"]+)"[^>]*class="[^"]*hv-prt_product-a[^"]*"/i) ||
+                      rowHtml.match(/<a[^>]*class="[^"]*hv-prt_product-a[^"]*"[^>]*href="([^"]+)"/i) ||
+                      rowHtml.match(/<a[^>]*href="(\/\d+\/[^"]+)"/i);
+    if (!linkMatch) continue;
+
+    const href = linkMatch[1];
+    if (!href.match(/^\/\d+\//) && !href.match(/^https:\/\/hinta\.fi\/\d+\//)) continue;
+
+    const url = href.startsWith("http") ? href : HINTA_BASE + href;
+
+    const nameMatch = rowHtml.match(/<strong[^>]*class="[^"]*hv--name[^"]*"[^>]*>([\s\S]*?)<\/strong>/i) ||
+                      rowHtml.match(/alt="([^"]+)"/i);
+    const name = nameMatch ? nameMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+
+    const priceAttrMatch = rowAttrs.match(/data-price="([^"]+)"/i);
+    const priceCellMatch = rowHtml.match(/<td[^>]*class="[^"]*hv--price[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+    const priceText = priceAttrMatch ? priceAttrMatch[1] : (priceCellMatch ? priceCellMatch[1].replace(/<[^>]+>/g, "") : "");
+    const price = parsePrice(priceText);
+
+    const storeCountMatch = rowHtml.match(/<td[^>]*class="[^"]*hv--store-count[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+    const storeCount = storeCountMatch ? parseInt(storeCountMatch[1].replace(/<[^>]+>/g, "").trim(), 10) : null;
+
+    if (name.length > 1) {
+      results.push({
+        source: "hintafi",
+        name,
+        url,
+        currentLowestPrice: price,
+        storeCount: storeCount || null,
+        matchPercent: computeSimilarity(originalQuery, name),
+      });
+    }
+  }
+
+  results.sort((a, b) => b.matchPercent - a.matchPercent);
+  return results;
+}
+
+// ── Parse Hintaopas.fi Search Results (Schema.org JSON-LD) ──────
+function parseHintaopasSearchResults(html, originalQuery) {
+  const results = [];
+  const ldMatches = html.match(/<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+
+  for (const m of ldMatches) {
+    try {
+      const jsonStr = m.replace(/<script[^>]*>/i, "").replace(/<\/script>/i, "").trim();
+      const data = JSON.parse(jsonStr);
+      if (data["@type"] === "ItemList" && Array.isArray(data.itemListElement)) {
+        for (const el of data.itemListElement) {
+          const item = el.item || el;
+          const name = item.name;
+          const rawUrl = item["@id"] || item.url || "";
+          const url = rawUrl.startsWith("http") ? rawUrl : "https://hintaopas.fi" + rawUrl;
+
+          let lowPrice = null;
+          let highPrice = null;
+          let storeCount = null;
+
+          if (item.offers) {
+            lowPrice = item.offers.lowPrice || item.offers.price || null;
+            highPrice = item.offers.highPrice || null;
+            storeCount = item.offers.offerCount || null;
+          }
+
+          if (name && url) {
+            results.push({
+              source: "hintaopas",
+              name: name.trim(),
+              url,
+              currentLowestPrice: lowPrice ? parseFloat(lowPrice) : null,
+              highestPrice: highPrice ? parseFloat(highPrice) : null,
+              storeCount: storeCount || null,
+              matchPercent: computeSimilarity(originalQuery, name),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // JSON parse error, ignore
+    }
+  }
+
+  results.sort((a, b) => b.matchPercent - a.matchPercent);
+  return results;
+}
+
+// ── Execute Hinta.fi Search ─────────────────────────────────────
+async function executeHintaSearch(productName) {
+  const queries = buildSearchQueries(productName);
+
+  for (const q of queries.slice(0, 6)) {
+    try {
+      const searchUrl = HINTA_SEARCH_URL + encodeURIComponent(q);
+      const res = await fetchWithTimeout(searchUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "fi-FI,fi;q=0.9",
+        },
+      }, 3000);
+
+      if (!res || !res.ok) continue;
+
+      const html = await res.text();
+      const results = parseHintaSearchResults(html, productName);
+
+      if (results.length > 0) {
+        return {
+          success: true,
+          source: "hintafi",
+          results,
+          searchUrl,
+          usedQuery: q,
+        };
+      }
+    } catch (e) {
+      // Timeout or network error, continue to next query
+    }
+  }
+
+  return {
+    success: false,
+    results: [],
+  };
+}
+
+// ── Execute Hintaopas.fi Search (JSON API) ──────────────────────
+async function executeHintaopasSearch(productName) {
+  const queries = buildSearchQueries(productName);
+
+  for (const q of queries.slice(0, 7)) {
+    try {
+      const apiUrl = HINTAOPAS_API_URL + encodeURIComponent(q);
+      const res = await fetchWithTimeout(apiUrl, {
+        headers: {
+          "Accept": "application/json",
+          "Accept-Language": "fi-FI,fi;q=0.9",
+        },
+      }, 3500);
+
+      if (!res || !res.ok) continue;
+
+      const json = await res.json();
+      const items = json.value || json || [];
+
+      if (!Array.isArray(items) || items.length === 0) continue;
+
+      const results = items
+        .filter((item) => item.product && item.product.name)
+        .map((item) => {
+          const p = item.product;
+          const url = `https://hintaopas.fi/product.php?p=${p.id}`;
+          return {
+            source: "hintaopas",
+            name: p.name,
+            url,
+            hintaopasId: p.id,
+            currentLowestPrice: p.price || null,
+            imageUrl: p.imageUrl || null,
+            categoryName: p.categoryName || null,
+            storeCount: null,
+            matchPercent: computeSimilarity(productName, p.name),
+          };
+        });
+
+      results.sort((a, b) => b.matchPercent - a.matchPercent);
+
+      if (results.length > 0 && results[0].matchPercent >= 40) {
+        return {
+          success: true,
+          source: "hintaopas",
+          results,
+          searchUrl: HINTAOPAS_SEARCH_URL + encodeURIComponent(q),
+          usedQuery: q,
+        };
+      }
+    } catch (e) {
+      // Timeout or network error, try next query
+    }
+  }
+
+  return {
+    success: false,
+    results: [],
+  };
+}
+
+// ── Parse Hintaopas Product Page & History ───────────────────────
+function parseHintaopasProductHtml(html, productUrl) {
+  const details = {
+    source: "hintaopas",
+    productName: null,
+    lowestEver: null,
+    averagePrice: null,
+    highestEver: null,
+    currentLowest: null,
+    lowest30d: null,
+    stores: [],
+    historyPoints: [],
+    productUrl: productUrl,
+    historyUrl: productUrl,
+  };
+
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+  if (titleMatch) {
+    details.productName = titleMatch[1].replace(/\s*[-–|].*$/, "").trim();
+  }
+
+  const m = html.match(/historyItems\\?":\\?\[/);
+  if (m) {
+    const startIdx = m.index + m[0].length - 1;
+    let depth = 0;
+    let inEscape = false;
+    let inQuote = false;
+    let endIdx = -1;
+
+    for (let i = startIdx; i < html.length; i++) {
+      const ch = html[i];
+      if (ch === "\\" && !inEscape) {
+        inEscape = true;
+        continue;
+      }
+      if (ch === '"' && !inEscape) {
+        inQuote = !inQuote;
+      } else if (!inQuote) {
+        if (ch === "[") {
+          depth++;
+        } else if (ch === "]") {
+          depth--;
+          if (depth === 0) {
+            endIdx = i + 1;
+            break;
+          }
+        }
+      }
+      inEscape = false;
+    }
+
+    if (endIdx > startIdx) {
+      try {
+        const rawJson = html.substring(startIdx, endIdx);
+        const cleaned = rawJson.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+        const items = JSON.parse(cleaned);
+
+        if (Array.isArray(items) && items.length > 0) {
+          items.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+          const byDate = new Map();
+          const latestShopPrices = new Map();
+
+          for (const it of items) {
+            const dateStr = (it.date || "").split("T")[0];
+            const price = (it.price || 0) / 100;
+            const shop = it.shopName || "Kauppa";
+            if (price <= 0) continue;
+
+            latestShopPrices.set(shop, {
+              name: shop,
+              price: price,
+              delivery: "",
+              storeUrl: productUrl,
+            });
+
+            if (!byDate.has(dateStr)) {
+              byDate.set(dateStr, {
+                date: dateStr,
+                title: dateStr,
+                minPrice: price,
+                offers: [],
+              });
+            }
+            const dateEntry = byDate.get(dateStr);
+            dateEntry.offers.push({ store: shop, price: price });
+            if (price < dateEntry.minPrice) {
+              dateEntry.minPrice = price;
+            }
+          }
+
+          const points = [];
+          for (const entry of byDate.values()) {
+            points.push({
+              date: entry.date,
+              title: entry.title,
+              price: entry.minPrice,
+              offers: entry.offers,
+            });
+          }
+
+          details.historyPoints = points;
+
+          if (points.length > 0) {
+            const prices = points.map((p) => p.price);
+            details.lowestEver = Math.min(...prices);
+            details.highestEver = Math.max(...prices);
+            const sum = prices.reduce((a, b) => a + b, 0);
+            details.averagePrice = Math.round((sum / prices.length) * 100) / 100;
+          }
+
+          const storesArr = Array.from(latestShopPrices.values());
+          storesArr.sort((a, b) => a.price - b.price);
+          details.stores = storesArr;
+
+          if (storesArr.length > 0) {
+            details.currentLowest = storesArr[0].price;
+          } else if (details.lowestEver) {
+            details.currentLowest = details.lowestEver;
+          }
+        }
+      } catch (err) {
+        console.error("[Aitohinta] Failed to parse Hintaopas historyItems JSON:", err);
+      }
+    }
+  }
+
+  return details;
+}
+
+// ── Multi-Source Search (Hinta.fi primary, Hintaopas.fi secondary) 
+async function executeMultiSourceSearch(productName) {
+  const cacheKey = productName.trim().toLowerCase();
+  if (searchCache.has(cacheKey)) {
+    return searchCache.get(cacheKey);
+  }
+
+  // 1. Try Hinta.fi
+  let hintaRes = null;
+  try {
+    hintaRes = await executeHintaSearch(productName);
+  } catch (e) {
+    hintaRes = { success: false, results: [] };
+  }
+
+  const hintaBestMatch = (hintaRes && hintaRes.results && hintaRes.results.length > 0)
+    ? hintaRes.results[0].matchPercent
+    : 0;
+
+  // 2. Also try Hintaopas.fi (always, for fallback history data)
+  let opasRes = null;
+  try {
+    opasRes = await executeHintaopasSearch(productName);
+  } catch (e) {
+    opasRes = { success: false, results: [] };
+  }
+
+  const opasBestMatch = (opasRes && opasRes.results && opasRes.results.length > 0)
+    ? opasRes.results[0].matchPercent
+    : 0;
+
+  // Helper: attach altResult from the other source for details fallback
+  function attachAlt(primary, altResults) {
+    if (altResults && altResults.results && altResults.results.length > 0) {
+      primary.altResult = altResults.results[0];
+    }
+    return primary;
+  }
+
+  // If Hinta.fi gave a good match (>= 50%), prefer Hinta.fi as Finnish primary comparison
+  if (hintaRes && hintaRes.success && hintaBestMatch >= 50) {
+    searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
+    return hintaRes;
+  }
+
+  // If Hintaopas has a significantly better match
+  if (opasBestMatch > hintaBestMatch + 15 && opasBestMatch >= 45) {
+    searchCache.set(cacheKey, attachAlt(opasRes, hintaRes));
+    return opasRes;
+  }
+
+  if (hintaBestMatch >= 35) {
+    searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
+    return hintaRes;
+  }
+
+  if (opasBestMatch > 0) {
+    searchCache.set(cacheKey, attachAlt(opasRes, hintaRes));
+    return opasRes;
+  }
+
+  // 3. Fallback: return best result between the two if any, or empty with direct URLs
+  const bestResults = (hintaRes && hintaRes.results.length > 0)
+    ? hintaRes.results
+    : (opasRes && opasRes.results.length > 0)
+    ? opasRes.results
+    : [];
+
+  const sourceName = (bestResults.length > 0 && bestResults[0].source) || "hintafi";
+  const finalRes = {
+    success: true,
+    source: (bestResults.length > 0) ? sourceName : "none",
+    results: bestResults,
+    searchUrl: HINTA_SEARCH_URL + encodeURIComponent(productName),
+    usedQuery: productName,
+  };
+
+  // Attach alt from whichever wasn't primary
+  if (bestResults.length > 0 && bestResults[0].source === "hintaopas") {
+    attachAlt(finalRes, hintaRes);
+  } else {
+    attachAlt(finalRes, opasRes);
+  }
+
+  searchCache.set(cacheKey, finalRes);
+  return finalRes;
+}
+
+// ── Fetch Product Details & Historical Stores ───────────────────
+async function fetchProductDetails(productUrl, source = "hintafi") {
+  if (detailsCache.has(productUrl)) {
+    return detailsCache.get(productUrl);
+  }
+
+  const baseProdUrl = productUrl.split("?")[0].replace(/\/+$/, "");
+  const historyUrl = `${baseProdUrl}/historia?l=1`;
+
+  // If source is Hintaopas, fetch product page HTML and parse full history
+  if (source === "hintaopas" || productUrl.includes("hintaopas.fi")) {
+    try {
+      const prodRes = await fetchWithTimeout(productUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "fi-FI,fi;q=0.9",
+        },
+      }, 4000);
+
+      if (prodRes && prodRes.ok) {
+        const html = await prodRes.text();
+        const details = parseHintaopasProductHtml(html, productUrl);
+        detailsCache.set(productUrl, details);
+        return details;
+      }
+    } catch (err) {
+      console.error("[Aitohinta] Error fetching Hintaopas product details:", err);
+    }
+
+    const fallbackDetails = {
+      source: "hintaopas",
+      productName: null,
+      lowestEver: null,
+      averagePrice: null,
+      highestEver: null,
+      currentLowest: null,
+      lowest30d: null,
+      stores: [],
+      historyPoints: [],
+      productUrl: productUrl,
+      historyUrl: productUrl,
+    };
+    detailsCache.set(productUrl, fallbackDetails);
+    return fallbackDetails;
+  }
+
+  // 1. Fetch Product Page for Store listings with Direct URLs (Hinta.fi)
+  try {
+    const prodRes = await fetchWithTimeout(baseProdUrl, {
+      headers: {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "fi-FI,fi;q=0.9",
+      },
+    }, 3000);
+
+    if (prodRes && prodRes.ok) {
+      const prodHtml = await prodRes.text();
+
+      // Product Title (Regex works in all environments)
+      const h1Match = prodHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match) details.productName = h1Match[1].replace(/<[^>]+>/g, "").trim();
+
+      const p30Match = prodHtml.match(/Alin hinta 30 päivän aikana\s*([\d\s,.]+)\s*€/i);
+      if (p30Match) details.lowest30d = parsePrice(p30Match[1]);
+
+      if (typeof DOMParser !== "undefined") {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(prodHtml, "text/html");
+
+          const h1 = doc.querySelector("h1");
+          if (h1 && !details.productName) details.productName = h1.textContent.trim();
+
+          const storeRows = doc.querySelectorAll("tr.hv-oft-tr, tr[class*='hv-oft-tr']");
+          storeRows.forEach((row) => {
+            const thStore = row.querySelector("th.hv--store, td.hv--store, [class*='hv--store']");
+            let storeName = "";
+            let storeUrl = "";
+
+            if (thStore) {
+              const a = thStore.querySelector("a[href]");
+              if (a) {
+                const href = a.getAttribute("href");
+                storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
+                if (a.getAttribute("title")) {
+                  const tm = a.getAttribute("title").match(/Siirry kauppaan:\s*(.+)/i);
+                  storeName = tm ? tm[1].trim() : a.getAttribute("title").trim();
+                }
+              }
+              if (!storeName) {
+                const hiddenSpan = thStore.querySelector(".hv-visual-hide");
+                storeName = hiddenSpan ? hiddenSpan.textContent.trim() : thStore.textContent.trim();
+              }
+            }
+
+            if (!storeUrl) {
+              const linkTd = row.querySelector("td.hv--link a[href]");
+              if (linkTd) {
+                const href = linkTd.getAttribute("href");
+                storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
+              }
+            }
+
+            let price = null;
+            const dataPrice = row.getAttribute("data-price");
+            if (dataPrice) {
+              price = parsePrice(dataPrice);
+            } else {
+              const tdPrice = row.querySelector("td.hv--price, [class*='hv--price']");
+              if (tdPrice) price = parsePrice(tdPrice.textContent);
+            }
+
+            const delivery = row.getAttribute("data-delivery-fee") || "";
+
+            if (storeName && price) {
+              details.stores.push({
+                name: storeName,
+                price: price,
+                delivery: delivery,
+                storeUrl: storeUrl || historyUrl,
+              });
+            }
+          });
+        } catch (e) {}
+      } else {
+        // Regex fallback for Chrome Service Worker
+        const oftRegex = /<tr[^>]*class="[^"]*hv-oft-tr[^"]*"([^>]*)>([\s\S]*?)<\/tr>/gi;
+        let oMatch;
+        while ((oMatch = oftRegex.exec(prodHtml)) !== null) {
+          const rowAttrs = oMatch[1];
+          const rowHtml = oMatch[2];
+
+          let storeName = "";
+          let storeUrl = "";
+
+          const titleAttrM = rowHtml.match(/title="Siirry kauppaan:\s*([^"]+)"/i);
+          if (titleAttrM) {
+            storeName = titleAttrM[1].trim();
+          } else {
+            const hideSpanM = rowHtml.match(/<span[^>]*class="[^"]*hv-visual-hide[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+            if (hideSpanM) storeName = hideSpanM[1].replace(/<[^>]+>/g, "").trim();
+          }
+
+          const hrefM = rowHtml.match(/href="([^"]+)"/i);
+          if (hrefM) {
+            const href = hrefM[1];
+            storeUrl = href.startsWith("http") ? href : HINTA_BASE + href;
+          }
+
+          let price = null;
+          const dataPriceM = rowAttrs.match(/data-price="([^"]+)"/i);
+          if (dataPriceM) {
+            price = parsePrice(dataPriceM[1]);
+          } else {
+            const tdPriceM = rowHtml.match(/<td[^>]*class="[^"]*hv--price[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
+            if (tdPriceM) price = parsePrice(tdPriceM[1].replace(/<[^>]+>/g, ""));
+          }
+
+          const delM = rowAttrs.match(/data-delivery-fee="([^"]+)"/i);
+          const delivery = delM ? delM[1].trim() : "";
+
+          if (storeName && price) {
+            details.stores.push({
+              name: storeName,
+              price: price,
+              delivery: delivery,
+              storeUrl: storeUrl || historyUrl,
+            });
+          }
+        }
+      }
+
+      if (details.stores.length > 0) {
+        details.stores.sort((a, b) => a.price - b.price);
+        details.currentLowest = details.stores[0].price;
+      }
+    }
+  } catch (err) {
+    // Timeout or network error
+  }
+
+  // 2. Fetch History Page with Historical Store Offers from 'custom'
+  try {
+    const histRes = await fetchWithTimeout(historyUrl, {
+      headers: {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "fi-FI,fi;q=0.9",
+      },
+    }, 3000);
+
+    if (histRes && histRes.ok) {
+      const histHtml = await histRes.text();
+      const histMatch = histHtml.match(/var\s+hvEnvProductHistory\s*=\s*(\{.*?\});/s);
+
+      if (histMatch) {
+        try {
+          const histData = JSON.parse(histMatch[1]);
+          const datasets = histData.datasets || [];
+          const labels = histData.labels || [];
+          const custom = histData.custom || {};
+
+          if (datasets.length > 0 && datasets[0].data) {
+            const validPrices = datasets[0].data.filter((p) => p !== null && p > 0);
+            if (validPrices.length > 0) {
+              details.lowestEver = Math.min(...validPrices);
+              details.highestEver = Math.max(...validPrices);
+              const sum = validPrices.reduce((a, b) => a + b, 0);
+              details.averagePrice = Math.round((sum / validPrices.length) * 100) / 100;
+
+              for (let i = 0; i < labels.length; i++) {
+                const label = labels[i];
+                const p = datasets[0].data[i];
+                if (p !== null && p > 0) {
+                  const customItem = custom[label] || {};
+                  const offers = (customItem.offers || []).map((o) => ({
+                    store: o.store || "",
+                    price: o.value || o.price,
+                  }));
+
+                  details.historyPoints.push({
+                    date: (label || "").split(" ")[0],
+                    title: customItem.title || label,
+                    price: p,
+                    offers: offers,
+                  });
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // JSON parse error
+        }
+      }
+    }
+  } catch (err) {
+    // Timeout or network error
+  }
+
+  if (!details.currentLowest && details.lowestEver) {
+    details.currentLowest = details.lowestEver;
+  }
+
+  detailsCache.set(productUrl, details);
+  return details;
+}
+
+// ── Message Listener ────────────────────────────────────────────
+browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === "searchHintaFi" || msg.action === "searchMultiSource") {
+    executeMultiSourceSearch(msg.productName)
+      .then((res) => sendResponse(res))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.action === "getProductDetails") {
+    fetchProductDetails(msg.url, msg.source)
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+});

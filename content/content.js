@@ -6,6 +6,10 @@
 (function () {
   "use strict";
 
+  if (typeof browser === "undefined") {
+    globalThis.browser = globalThis.chrome;
+  }
+
   if (window.__hintafiInjected) return;
   window.__hintafiInjected = true;
 
@@ -1270,13 +1274,6 @@
               popover.classList.remove("hf-popover-open");
             }
           });
-        } catch (err) {
-          log("Listing fetch error:", err);
-          btn.textContent = "❌ Virhe – yritä uudelleen";
-          btn.disabled = false;
-          btn.classList.remove("hf-listing-btn-loading");
-        }
-      });
         } catch (err) {
           log("Listing fetch error:", err);
           btn.textContent = "❌ Virhe – yritä uudelleen";

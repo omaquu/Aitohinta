@@ -1,6 +1,10 @@
 // popup/popup.js
 "use strict";
 
+if (typeof browser === "undefined") {
+  globalThis.browser = globalThis.chrome;
+}
+
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
