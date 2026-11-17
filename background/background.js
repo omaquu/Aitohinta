@@ -315,7 +315,7 @@ function parseHintaopasSearchResults(html, originalQuery) {
 async function executeHintaSearch(productName) {
   const queries = buildSearchQueries(productName);
 
-  for (const q of queries.slice(0, 3)) {
+  for (const q of queries.slice(0, 6)) {
     try {
       const searchUrl = HINTA_SEARCH_URL + encodeURIComponent(q);
       const res = await fetchWithTimeout(searchUrl, {
@@ -580,19 +580,19 @@ async function executeMultiSourceSearch(productName) {
     return primary;
   }
 
-  // If Hinta.fi gave a strong match (>= 75%), use it directly
-  if (hintaRes && hintaRes.success && hintaBestMatch >= 75) {
+  // If Hinta.fi gave a good match (>= 50%), prefer Hinta.fi as Finnish primary comparison
+  if (hintaRes && hintaRes.success && hintaBestMatch >= 50) {
     searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
     return hintaRes;
   }
 
-  // Pick whichever has the better match
-  if (opasBestMatch > hintaBestMatch && opasBestMatch >= 40) {
+  // If Hintaopas has a significantly better match
+  if (opasBestMatch > hintaBestMatch + 15 && opasBestMatch >= 45) {
     searchCache.set(cacheKey, attachAlt(opasRes, hintaRes));
     return opasRes;
   }
 
-  if (hintaBestMatch >= 40) {
+  if (hintaBestMatch >= 35) {
     searchCache.set(cacheKey, attachAlt(hintaRes, opasRes));
     return hintaRes;
   }

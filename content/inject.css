@@ -510,6 +510,35 @@
   color: #ffffff !important;
 }
 
+.hf-popover-service-links {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+
+.hf-popover-btn-alt {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 12px !important;
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  transition: all 0.15s !important;
+}
+
+.hf-popover-btn-alt:hover {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+  border-color: #9ca3af !important;
+}
+
 /* ── Listing Page / Category Card Badges ── */
 .hf-listing-badge-container {
   display: block !important;

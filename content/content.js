@@ -78,6 +78,21 @@
     if (host.includes("jimms")) {
       return /\/product\//.test(location.pathname) || /\/tuote\//.test(location.pathname);
     }
+    if (host.includes("elisa")) {
+      return /\/kauppa\/tuote\//.test(location.pathname) || /\/kauppa\/.*\/tuote/.test(location.pathname) || !!document.querySelector("[data-testid*='pdp'], [data-testid*='product-page']");
+    }
+    if (host.includes("dna")) {
+      return /\/tuotteet\//.test(location.pathname) || /\/laitteet\//.test(location.pathname) || /\/tuote\//.test(location.pathname) || !!document.querySelector("[data-testid*='product-page']");
+    }
+    if (host.includes("telia")) {
+      return /\/kauppa\/.*\/tuote/.test(location.pathname) || /\/kauppa\/laitteet\//.test(location.pathname) || /\/tuote\//.test(location.pathname) || !!document.querySelector("[data-testid*='product-page']");
+    }
+    if (host.includes("prisma")) {
+      return /\/tuotteet\//.test(location.pathname) || /\/tuote\//.test(location.pathname);
+    }
+    if (host.includes("tokmanni")) {
+      return /\-\d{8,14}$/.test(location.pathname) || /\/tuote\//.test(location.pathname);
+    }
     const path = location.pathname.toLowerCase();
     if (/search|haku|kategoria|category|catalog/.test(path)) return false;
     return !!document.querySelector("h1");
@@ -310,7 +325,68 @@
         }
       }
 
-      // ──── 4. Generic Fallback ────────────────────────────────
+      // ──── 4. Prisma.fi ──────────────────────────────────────
+      if (host.includes("prisma")) {
+        const priceEl = document.querySelector("[data-testid*='product-price'], [class*='ProductPrice'], [class*='Price_price'], [data-test-id*='price']");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const normEl = document.querySelector("[class*='CrossedPrice'], [class*='originalPrice'], [class*='oldPrice']");
+          if (normEl) claimedNorm = parsePrice(normEl.textContent);
+          const buyBtn = document.querySelector("[data-testid*='add-to-cart'], button[class*='AddToCart']");
+          anchor = buyBtn?.parentElement || priceEl.closest("[class*='ProductDetails'], [class*='ProductInfo']") || priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 5. Tokmanni.fi ────────────────────────────────────
+      if (host.includes("tokmanni")) {
+        const priceEl = document.querySelector(".product-info-price, [data-price-type='finalPrice'], .price-box .price, .product-info-main .price");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const oldPriceEl = document.querySelector(".old-price .price, [data-price-type='oldPrice']");
+          if (oldPriceEl) claimedNorm = parsePrice(oldPriceEl.textContent);
+          anchor = priceEl.closest(".product-info-price") || priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 6. Elisa.fi ───────────────────────────────────────
+      if (host.includes("elisa")) {
+        const priceEl = document.querySelector("[data-testid*='price'], [class*='Price__Container'], [class*='ProductPrice'], [class*='price-container']");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const normEl = document.querySelector("[data-testid*='normal-price'], [class*='NormalPrice'], [class*='old-price']");
+          if (normEl) claimedNorm = parsePrice(normEl.textContent);
+          anchor = priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 7. DNA.fi ─────────────────────────────────────────
+      if (host.includes("dna")) {
+        const priceEl = document.querySelector("[data-testid*='price'], [class*='product-summary__price'], [class*='Price__'], [class*='price-container']");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const normEl = document.querySelector("[class*='normal-price'], [class*='old-price']");
+          if (normEl) claimedNorm = parsePrice(normEl.textContent);
+          anchor = priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 8. Telia.fi ───────────────────────────────────────
+      if (host.includes("telia")) {
+        const priceEl = document.querySelector("[data-testid*='price'], [class*='PriceContainer'], [class*='product-price'], [class*='price-wrapper']");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const normEl = document.querySelector("[class*='normal-price'], [class*='original-price']");
+          if (normEl) claimedNorm = parsePrice(normEl.textContent);
+          anchor = priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 9. Generic Fallback ────────────────────────────────
       const main = document.querySelector("main") || document.body;
       const allEls = main.querySelectorAll("div, span, p, strong");
       let bestEl = null;
@@ -461,10 +537,11 @@
         </div>`;
     }
 
-    // External search bar
+    // External comparison links bar
     const sourcesBarHtml = `
       <div class="hf-sources-bar">
-        <span class="hf-sources-label">Vertaa myös:</span>
+        <span class="hf-sources-label">Vertaa palveluissa:</span>
+        <a href="${esc(extUrls.hintafi)}" target="_blank" rel="noopener noreferrer" class="hf-source-pill">Hinta.fi ↗</a>
         <a href="${esc(extUrls.hintaopas)}" target="_blank" rel="noopener noreferrer" class="hf-source-pill">Hintaopas.fi ↗</a>
         <a href="${esc(extUrls.vertaa)}" target="_blank" rel="noopener noreferrer" class="hf-source-pill">Vertaa.fi ↗</a>
       </div>`;
@@ -540,9 +617,20 @@
 
         ${storesHtml}
 
-        <a class="hf-popover-btn" href="${esc(histUrl)}" target="_blank" rel="noopener noreferrer">
-          Avaa tuote ja kaupat palvelussa ➔
-        </a>
+        <div class="hf-popover-service-links">
+          <a class="hf-popover-btn" href="${esc(histUrl)}" target="_blank" rel="noopener noreferrer">
+            Avaa tuote ja kaupat (${product.source === "hintaopas" ? "Hintaopas.fi" : "Hinta.fi"}) ➔
+          </a>
+          ${product.source === "hintaopas" ? `
+            <a class="hf-popover-btn hf-popover-btn-alt" href="${esc(extUrls.hintafi)}" target="_blank" rel="noopener noreferrer" title="Avaa vertailu Hinta.fi:ssä">
+              Avaa Hinta.fi vertailu ↗
+            </a>
+          ` : `
+            <a class="hf-popover-btn hf-popover-btn-alt" href="${esc(extUrls.hintaopas)}" target="_blank" rel="noopener noreferrer" title="Avaa vertailu Hintaopas.fi:ssä">
+              Avaa Hintaopas.fi vertailu ↗
+            </a>
+          `}
+        </div>
       </div>
     `;
 
@@ -806,6 +894,21 @@
       cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
     }
 
+    if (host.includes("prisma")) {
+      const cards = document.querySelectorAll("article[class*='ProductCard'], [data-testid*='product-card'], article, li[class*='product']");
+      cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
+    }
+
+    if (host.includes("tokmanni")) {
+      const cards = document.querySelectorAll(".product-item, li.product-item, [class*='product-card']");
+      cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
+    }
+
+    if (host.includes("elisa") || host.includes("dna") || host.includes("telia")) {
+      const cards = document.querySelectorAll("[data-testid*='product-card'], [class*='ProductCard'], [class*='product-card'], article[class*='product']");
+      cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
+    }
+
     const pending = cardElements
       .filter((c) => !c.querySelector(".hf-listing-badge-container"))
       .slice(0, 20);
@@ -837,6 +940,15 @@
                       card.querySelector(".site-currency-wrapper") ||
                       card.querySelector(".site-currency-attention") ||
                       card.querySelector("[class*='site-currency']");
+      } else if (host.includes("prisma")) {
+        priceAnchor = card.querySelector("[data-testid*='price'], [class*='ProductPrice'], [class*='Price_price']") ||
+                      card.querySelector("[class*='price']");
+      } else if (host.includes("tokmanni")) {
+        priceAnchor = card.querySelector(".price-box, [data-price-type='finalPrice'], .price-wrapper, .price") ||
+                      card.querySelector("[class*='price']");
+      } else if (host.includes("elisa") || host.includes("dna") || host.includes("telia")) {
+        priceAnchor = card.querySelector("[data-testid*='price'], [class*='Price'], [class*='price-container'], [class*='price']") ||
+                      card.querySelector("button")?.parentElement;
       }
 
       if (!priceAnchor) {
