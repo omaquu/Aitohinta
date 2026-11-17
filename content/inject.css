@@ -512,35 +512,78 @@
 
 /* ── Listing Page / Category Card Badges ── */
 .hf-listing-badge-container {
-  display: inline-block !important;
-  vertical-align: middle !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  clear: both !important;
   position: relative !important;
-  margin: 4px 0 4px 8px !important;
+  margin: 6px 0 4px 0 !important;
   z-index: 50 !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+.hf-listing-badge-container:hover,
+.hf-listing-badge-container.hf-active,
+.hf-listing-badge-container.hf-locked {
+  z-index: 999999 !important;
 }
 
 .hf-listing-pill {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 5px !important;
-  padding: 3px 8px !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  padding: 4px 10px !important;
   background: #ffffff !important;
-  border: 1px solid #10b981 !important;
-  border-radius: 14px !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 12px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   color: #111827 !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
   cursor: pointer !important;
-  white-space: nowrap !important;
   transition: all 0.15s ease !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-.hf-listing-pill:hover {
+.hf-listing-pill:hover,
+.hf-listing-badge-container.hf-active .hf-listing-pill,
+.hf-listing-badge-container.hf-locked .hf-listing-pill {
   background: #f0fdf4 !important;
   border-color: #059669 !important;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+}
+
+.hf-listing-brand {
+  font-weight: 700 !important;
+  color: #047857 !important;
+}
+
+.hf-listing-curlow {
+  color: #111827 !important;
+}
+
+.hf-listing-best-here {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.hf-listing-cheaper {
+  color: #059669 !important;
+  font-weight: 700 !important;
+}
+
+.hf-listing-pct-badge {
+  display: inline-block !important;
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  vertical-align: middle !important;
 }
 
 .hf-listing-norm {
@@ -553,14 +596,18 @@
   font-weight: 700 !important;
 }
 
-.hf-listing-cheaper {
-  color: #2563eb !important;
-  font-weight: 600 !important;
-}
-
 .hf-listing-info-icon {
   font-size: 10px !important;
-  opacity: 0.8 !important;
+  color: #4b5563 !important;
+  background: #f3f4f6 !important;
+  padding: 2px 6px !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  margin-left: auto !important;
+  font-weight: 600 !important;
+  opacity: 0.9 !important;
 }
 
 /* Hover popover for listing cards */
@@ -568,23 +615,48 @@
   position: absolute !important;
   bottom: calc(100% + 6px) !important;
   left: 0 !important;
-  width: 280px !important;
+  width: 310px !important;
+  max-width: 92vw !important;
   background: #ffffff !important;
   border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
-  padding: 10px 12px !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06) !important;
   font-size: 11px !important;
-  line-height: 1.4 !important;
+  line-height: 1.45 !important;
   color: #1f2937 !important;
   opacity: 0 !important;
   visibility: hidden !important;
   transform: translateY(4px) !important;
-  transition: all 0.2s ease !important;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease !important;
   z-index: 999999 !important;
   pointer-events: none !important;
+  box-sizing: border-box !important;
 }
 
+/* Invisible bridge so moving cursor between pill and popover never drops hover */
+.hf-listing-popover::after {
+  content: "" !important;
+  position: absolute !important;
+  left: -15px !important;
+  right: -15px !important;
+  bottom: -15px !important;
+  height: 25px !important;
+  background: transparent !important;
+  pointer-events: auto !important;
+}
+
+.hf-listing-popover.hf-popover-below {
+  bottom: auto !important;
+  top: calc(100% + 6px) !important;
+}
+
+.hf-listing-popover.hf-popover-below::after {
+  bottom: auto !important;
+  top: -15px !important;
+}
+
+.hf-listing-popover.hf-popover-open,
 .hf-listing-badge-container:hover .hf-listing-popover {
   opacity: 1 !important;
   visibility: visible !important;
@@ -592,16 +664,136 @@
   pointer-events: auto !important;
 }
 
+.hf-listing-popover-title {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+  padding-bottom: 6px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+}
+
+.hf-listing-popover-name {
+  font-weight: 700 !important;
+  color: #111827 !important;
+  line-height: 1.3 !important;
+  max-width: 220px !important;
+}
+
+.hf-listing-popover-badge {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  padding: 1px 6px !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.hf-listing-popover-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  margin-bottom: 6px !important;
+}
+
+.hf-listing-stores {
+  margin: 6px 0 !important;
+  border-top: 1px solid #f3f4f6 !important;
+  padding-top: 6px !important;
+}
+
+.hf-listing-stores-title {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #6b7280 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  margin-bottom: 4px !important;
+}
+
+.hf-listing-store-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 4px 8px !important;
+  margin-bottom: 3px !important;
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+  color: #111827 !important;
+  font-size: 11px !important;
+  transition: all 0.12s ease !important;
+}
+
+.hf-listing-store-row:hover {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+  transform: translateX(2px) !important;
+}
+
+.hf-listing-store-name {
+  font-weight: 600 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 180px !important;
+}
+
+.hf-listing-store-price {
+  font-weight: 700 !important;
+  color: #059669 !important;
+  margin-left: 6px !important;
+  white-space: nowrap !important;
+}
+
+.hf-listing-links-row {
+  margin-top: 8px !important;
+  border-top: 1px solid #f3f4f6 !important;
+  padding-top: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.hf-listing-main-btn {
+  display: block !important;
+  text-align: center !important;
+  padding: 5px 10px !important;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-decoration: none !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: all 0.15s ease !important;
+}
+
+.hf-listing-main-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+}
+
+.hf-listing-sub-links {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
 
 /* ── Listing "Hae hinta" Button ── */
 .hf-listing-fetch-btn {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 5px !important;
   padding: 4px 10px !important;
   background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
   border: 1.5px solid #10b981 !important;
-  border-radius: 14px !important;
+  border-radius: 12px !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   color: #047857 !important;
@@ -610,6 +802,7 @@
   transition: all 0.15s ease !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   line-height: 1.4 !important;
+  margin-top: 2px !important;
 }
 
 .hf-listing-fetch-btn:hover {
@@ -644,10 +837,10 @@
 .hf-listing-link-btn {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 1px 6px !important;
+  padding: 2px 6px !important;
   background: #eff6ff !important;
   border: 1px solid #bfdbfe !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
   font-size: 10px !important;
   font-weight: 600 !important;
   color: #2563eb !important;

@@ -820,18 +820,62 @@
       if (tEl) title = tEl.textContent.trim();
       if (!title || title.length < 5) continue;
 
-      let cardPrice = null;
-      const allText = card.textContent || "";
-      const pM = allText.match(/(\d[\d\s\u00a0]*[\.,]\d{2}|\d+)\s*€/);
-      if (pM) cardPrice = parsePrice(pM[0]);
+      // Better price anchor detection per store so the button is placed directly below the site's own price
+      let priceAnchor = null;
+      if (host.includes("verkkokauppa")) {
+        priceAnchor = card.querySelector("data[data-price='current']") ||
+                      card.querySelector("[class*='price__root']") ||
+                      card.querySelector("[class*='price-wrapper']") ||
+                      card.querySelector("[class*='PriceSection']") ||
+                      card.querySelector("[class*='Price']");
+      } else if (host.includes("gigantti")) {
+        priceAnchor = card.querySelector("[data-testid*='product-price']") ||
+                      card.querySelector("[data-testid*='price']") ||
+                      card.querySelector("[class*='product-price']");
+      } else if (host.includes("proshop")) {
+        priceAnchor = card.querySelector(".site-currency-wrapper:not([class*='bottom-ribbon'])") ||
+                      card.querySelector(".site-currency-wrapper") ||
+                      card.querySelector(".site-currency-attention") ||
+                      card.querySelector("[class*='site-currency']");
+      }
 
-      const priceAnchor =
-        card.querySelector("[class*='stm-price__root'], [class*='price__root'], [class*='stm-price'], [class*='Price'], data[data-price='current'], [data-testid*='price']") ||
-        card.querySelector("button")?.parentElement ||
-        card.lastElementChild;
+      if (!priceAnchor) {
+        priceAnchor = card.querySelector("[class*='stm-price__root'], [class*='price__root'], [class*='stm-price'], [class*='Price'], data[data-price='current'], [data-testid*='price'], [class*='price']") ||
+                      card.querySelector("button")?.parentElement ||
+                      card.lastElementChild;
+      }
       if (!priceAnchor) continue;
 
-      // Create a "Hae hinta" button instead of auto-fetching
+      // Find the outermost price container if nested so the button sits below all price info
+      let anchor = priceAnchor;
+      if (anchor.parentElement && anchor.parentElement !== card && anchor.parentElement.tagName !== "ARTICLE" && anchor.parentElement.tagName !== "LI") {
+        const pClass = String(anchor.parentElement.className || "").toLowerCase();
+        if (pClass.includes("price") || pClass.includes("hinta") || anchor.parentElement.tagName === "SECTION") {
+          anchor = anchor.parentElement;
+        }
+      }
+
+      // Exact store price detection from card
+      let cardPrice = null;
+      if (host.includes("verkkokauppa")) {
+        const dataEl = card.querySelector("data[data-price='current']");
+        if (dataEl) {
+          const val = dataEl.getAttribute("value");
+          if (val) cardPrice = parseFloat(val);
+        }
+      }
+      if (!cardPrice && priceAnchor) {
+        const pText = priceAnchor.textContent || "";
+        const m = pText.match(/(\d[\d\s\u00a0]*[\.,]\d{2}|\d+)\s*€/);
+        if (m) cardPrice = parsePrice(m[0]);
+      }
+      if (!cardPrice) {
+        const allText = card.textContent || "";
+        const pM = allText.match(/(\d[\d\s\u00a0]*[\.,]\d{2}|\d+)\s*€/);
+        if (pM) cardPrice = parsePrice(pM[0]);
+      }
+
+      // Create a "Hae hinta" button placed directly below the price
       const badgeContainer = document.createElement("div");
       badgeContainer.className = "hf-listing-badge-container";
       badgeContainer.innerHTML = `
@@ -840,7 +884,7 @@
         </button>
       `;
 
-      priceAnchor.insertAdjacentElement("afterend", badgeContainer);
+      anchor.insertAdjacentElement("afterend", badgeContainer);
 
       // Attach click handler to fetch prices on demand
       const btn = badgeContainer.querySelector(".hf-listing-fetch-btn");
@@ -874,6 +918,38 @@
               } catch (e) {
                 log("Listing getProductDetails error:", e);
               }
+
+              // Fallback to secondary source if primary has no history/stores
+              const altResult = searchRes.altResult;
+              if (altResult && altResult.url && altResult.source !== best.source) {
+                const hasGoodHistory = details.historyPoints && details.historyPoints.length >= 2;
+                if (!hasGoodHistory || !details.averagePrice) {
+                  try {
+                    const altRes = await browser.runtime.sendMessage({
+                      action: "getProductDetails",
+                      url: altResult.url,
+                      source: altResult.source,
+                    });
+                    const altDetails = altRes && altRes.success ? altRes.data : {};
+                    if (altDetails.historyPoints && altDetails.historyPoints.length > (details.historyPoints || []).length) {
+                      details.historyPoints = altDetails.historyPoints;
+                      details.lowestEver = altDetails.lowestEver || details.lowestEver;
+                      details.highestEver = altDetails.highestEver || details.highestEver;
+                      details.averagePrice = altDetails.averagePrice || details.averagePrice;
+                      details.historyUrl = altResult.url;
+                    }
+                    if ((!details.stores || details.stores.length === 0) && altDetails.stores && altDetails.stores.length > 0) {
+                      details.stores = altDetails.stores;
+                    }
+                    if (!details.currentLowest && altDetails.currentLowest) {
+                      details.currentLowest = altDetails.currentLowest;
+                    }
+                  } catch (e) {
+                    log("Listing alt details error:", e);
+                  }
+                }
+              }
+
               if (!details.currentLowest && best.currentLowestPrice) {
                 details.currentLowest = best.currentLowestPrice;
               }
@@ -888,10 +964,10 @@
             const extUrls = getExternalUrls(title);
             badgeContainer.innerHTML = `
               <div class="hf-listing-pill hf-listing-not-found">
-                <span>💰</span>
+                <span class="hf-listing-brand">💰 Aitohinta</span>
                 <span class="hf-listing-norm">Ei osumaa</span>
-                <a href="${esc(extUrls.hintafi)}" target="_blank" class="hf-listing-link-btn" title="Hae Hinta.fi:stä">Hinta.fi ↗</a>
-                <a href="${esc(extUrls.hintaopas)}" target="_blank" class="hf-listing-link-btn" title="Hae Hintaopas:sta">Hintaopas ↗</a>
+                <a href="${esc(extUrls.hintafi)}" target="_blank" rel="noopener noreferrer" class="hf-listing-link-btn" title="Hae Hinta.fi:stä">Hinta.fi ↗</a>
+                <a href="${esc(extUrls.hintaopas)}" target="_blank" rel="noopener noreferrer" class="hf-listing-link-btn" title="Hae Hintaopas:sta">Hintaopas ↗</a>
               </div>
             `;
             return;
@@ -905,39 +981,164 @@
           if (!avg && !curLow) {
             badgeContainer.innerHTML = `
               <div class="hf-listing-pill">
-                <span>💰</span>
+                <span class="hf-listing-brand">💰 Aitohinta</span>
                 <span class="hf-listing-norm">Ei hintatietoja</span>
               </div>
             `;
             return;
           }
 
-          const isCheaperElsewhere = cardPrice && curLow && cardPrice > curLow * 1.05;
-          const diffFromAvg = (cardPrice || curLow) - (avg || cardPrice || 0);
-          const pctFromAvg = avg ? Math.round((diffFromAvg / avg) * 100) : 0;
           const extUrls = getExternalUrls(best.name || title);
 
+          // 1. Lowest / Elsewhere price with percentage
+          let curLowHtml = "";
+          if (curLow) {
+            if (cardPrice && curLow < cardPrice * 0.98) {
+              const diff = cardPrice - curLow;
+              const pct = Math.round((diff / cardPrice) * 100);
+              curLowHtml = `<span class="hf-listing-cheaper">Muualla: <strong>${fmt(curLow)}</strong> <span class="hf-listing-pct-badge">-${pct}%</span></span>`;
+            } else if (cardPrice && cardPrice <= curLow * 1.02) {
+              curLowHtml = `<span class="hf-listing-best-here">Täällä halvin! (<strong>${fmt(cardPrice)}</strong>)</span>`;
+            } else {
+              curLowHtml = `<span class="hf-listing-curlow">Halvin nyt: <strong>${fmt(curLow)}</strong></span>`;
+            }
+          }
+
+          // 2. Normal price
+          let normHtml = "";
+          if (avg) {
+            normHtml = `<span class="hf-listing-norm">Norm. ~<strong>${fmt(avg)}</strong></span>`;
+          }
+
+          // 3. Discount from normal price if store price is below normal and cheaper elsewhere wasn't shown
+          let discountHtml = "";
+          if (cardPrice && avg && cardPrice < avg * 0.95 && (!curLow || curLow >= cardPrice * 0.98)) {
+            const diffAvg = avg - cardPrice;
+            const pctAvg = Math.round((diffAvg / avg) * 100);
+            discountHtml = `<span class="hf-listing-pct-badge">-${pctAvg}% norm.</span>`;
+          }
+
+          // 4. Stores list for popover
+          let storesHtml = "";
+          if (details.stores && details.stores.length > 0) {
+            const storeRows = details.stores.slice(0, 4).map((s, i) => {
+              const sUrl = s.storeUrl || best.url;
+              return `
+                <a href="${esc(sUrl)}" target="_blank" rel="noopener noreferrer" class="hf-listing-store-row" title="Siirry kauppaan ${esc(s.name)}">
+                  <span class="hf-listing-store-name">${i === 0 ? "🏆 " : ""}${esc(s.name)} ↗</span>
+                  <strong class="hf-listing-store-price">${fmtExact(s.price)}</strong>
+                </a>
+              `;
+            }).join("");
+
+            storesHtml = `
+              <div class="hf-listing-stores">
+                <div class="hf-listing-stores-title">Kaupat &amp; hinnat nyt (klikkaa kauppaan):</div>
+                ${storeRows}
+              </div>
+            `;
+          }
+
           badgeContainer.innerHTML = `
-            <div class="hf-listing-pill">
-              <span>💰</span>
-              ${avg ? `<span class="hf-listing-norm">Norm. ~${fmt(avg)}</span>` : ""}
-              ${pctFromAvg < 0 ? `<span class="hf-listing-discount">↓ -${Math.abs(pctFromAvg)}%</span>` : ""}
-              ${isCheaperElsewhere ? `<span class="hf-listing-cheaper">Muualla: ${fmt(curLow)}</span>` : ""}
-              <span class="hf-listing-info-icon">ℹ️</span>
+            <div class="hf-listing-pill" title="Klikkaa lukitaksesi tiedot tai vie hiiri päälle">
+              <span class="hf-listing-brand">💰 Aitohinta:</span>
+              ${curLowHtml}
+              ${normHtml}
+              ${discountHtml}
+              <span class="hf-listing-info-icon">ℹ️ Kaupat ▾</span>
             </div>
             <div class="hf-listing-popover">
-              <div style="font-weight:700; color:#111827; margin-bottom:4px;">${esc(best.name)}</div>
-              <div>Vastaavuus: <strong>${best.matchPercent}%</strong></div>
-              ${avg ? `<div>Oikea normihinta: <strong>${fmt(avg)}</strong></div>` : ""}
-              ${curLow ? `<div>Halvin hinta nyt: <strong style="color:#059669;">${fmt(curLow)}</strong></div>` : ""}
-              ${details.lowestEver ? `<div>Alin koskaan: <strong>${fmt(details.lowestEver)}</strong></div>` : ""}
-              <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-                <a href="${esc(best.url)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Avaa tuote ➔</a>
-                <a href="${esc(extUrls.hintaopas)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Hintaopas ↗</a>
-                <a href="${esc(extUrls.vertaa)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Vertaa.fi ↗</a>
+              <div class="hf-listing-popover-title">
+                <div class="hf-listing-popover-name">${esc(best.name)}</div>
+                <span class="hf-listing-popover-badge">${best.matchPercent}% vastaavuus</span>
+              </div>
+              <div class="hf-listing-popover-meta">
+                ${cardPrice ? `<div>Kaupan hinta: <strong>${fmt(cardPrice)}</strong></div>` : ""}
+                ${curLow ? `<div>Halvin hinta nyt: <strong style="color:#059669;">${fmt(curLow)}</strong></div>` : ""}
+                ${avg ? `<div>Oikea normihinta: <strong>${fmt(avg)}</strong></div>` : ""}
+                ${details.lowestEver ? `<div>Kaikkien aikojen alin: <strong>${fmt(details.lowestEver)}</strong></div>` : ""}
+              </div>
+              ${storesHtml}
+              <div class="hf-listing-links-row">
+                <a href="${esc(details.historyUrl || best.url)}" target="_blank" rel="noopener noreferrer" class="hf-listing-main-btn">
+                  Avaa tuote ja kaupat vertailussa ➔
+                </a>
+                <div class="hf-listing-sub-links">
+                  <a href="${esc(extUrls.hintafi)}" target="_blank" rel="noopener noreferrer" class="hf-listing-link-btn">Hinta.fi ↗</a>
+                  <a href="${esc(extUrls.hintaopas)}" target="_blank" rel="noopener noreferrer" class="hf-listing-link-btn">Hintaopas ↗</a>
+                  <a href="${esc(extUrls.vertaa)}" target="_blank" rel="noopener noreferrer" class="hf-listing-link-btn">Vertaa.fi ↗</a>
+                </div>
               </div>
             </div>
           `;
+
+          // Hover & Click controls to ensure popover NEVER closes accidentally
+          const pill = badgeContainer.querySelector(".hf-listing-pill");
+          const popover = badgeContainer.querySelector(".hf-listing-popover");
+
+          let hideTimer = null;
+
+          const showPop = () => {
+            if (hideTimer) {
+              clearTimeout(hideTimer);
+              hideTimer = null;
+            }
+            badgeContainer.classList.add("hf-active");
+            popover.classList.add("hf-popover-open");
+
+            const rect = popover.getBoundingClientRect();
+            if (rect.top < 15) {
+              popover.classList.add("hf-popover-below");
+            } else {
+              popover.classList.remove("hf-popover-below");
+            }
+          };
+
+          const hidePop = () => {
+            if (badgeContainer.classList.contains("hf-locked")) return;
+            hideTimer = setTimeout(() => {
+              badgeContainer.classList.remove("hf-active");
+              popover.classList.remove("hf-popover-open");
+            }, 400); // 400ms grace period
+          };
+
+          badgeContainer.addEventListener("mouseenter", showPop);
+          badgeContainer.addEventListener("mouseleave", hidePop);
+          popover.addEventListener("mouseenter", showPop);
+          popover.addEventListener("mouseleave", hidePop);
+
+          // Click pill to lock open / toggle
+          pill.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (badgeContainer.classList.contains("hf-locked")) {
+              badgeContainer.classList.remove("hf-locked", "hf-active");
+              popover.classList.remove("hf-popover-open");
+            } else {
+              showPop();
+              badgeContainer.classList.add("hf-locked");
+            }
+          });
+
+          // Prevent popover clicks from bubbling to the parent product card (which could navigate away)
+          popover.addEventListener("click", (e) => {
+            e.stopPropagation();
+          });
+
+          // Close when clicking outside
+          document.addEventListener("click", (e) => {
+            if (!badgeContainer.contains(e.target)) {
+              badgeContainer.classList.remove("hf-locked", "hf-active");
+              popover.classList.remove("hf-popover-open");
+            }
+          });
+        } catch (err) {
+          log("Listing fetch error:", err);
+          btn.textContent = "❌ Virhe – yritä uudelleen";
+          btn.disabled = false;
+          btn.classList.remove("hf-listing-btn-loading");
+        }
+      });
         } catch (err) {
           log("Listing fetch error:", err);
           btn.textContent = "❌ Virhe – yritä uudelleen";
