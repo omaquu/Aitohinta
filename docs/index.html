@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aitohinta – Paljasta feikkialennukset verkkokaupoissa</title>
+  <meta name="description" content="Aitohinta on selainlaajennus, joka paljastaa feikkialennukset suomalaisissa verkkokaupoissa. Näytä oikea normihinta, hintahistoriakäyrä ja vertaa Hinta.fi-, Hintaopas- ja Vertaa.fi-palveluihin.">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --primary-light: #ecfdf5;
+      --dark: #0f172a;
+      --dark-card: #1e293b;
+      --gray-text: #64748b;
+      --light-bg: #f8fafc;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --blue: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--dark);
+      background-color: #ffffff;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      padding: 16px 0;
+    }
+
+    .nav-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--dark);
+      text-decoration: none;
+    }
+
+    .brand img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .brand span {
+      color: var(--primary);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--gray-text);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover {
+      color: var(--dark);
+    }
+
+    .btn-header {
+      background: var(--primary);
+      color: #ffffff !important;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .btn-header:hover {
+      background: var(--primary-dark) !important;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: #ffffff;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin-bottom: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      max-width: 800px;
+      margin: 0 auto 20px;
+      color: var(--dark);
+    }
+
+    .hero h1 span {
+      color: var(--primary);
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--gray-text);
+      max-width: 660px;
+      margin: 0 auto 36px;
+    }
+
+    .cta-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transition: all 0.15s;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      background: #ffffff;
+      color: var(--dark);
+      border: 1.5px solid var(--border);
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--light-bg);
+      border-color: #cbd5e1;
+    }
+
+    .chrome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px dashed #cbd5e1;
+    }
+
+    .chrome-badge .tag {
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* Screenshots Showcase */
+    .showcase {
+      padding: 70px 0;
+      background: var(--light-bg);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title h2 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+
+    .section-title p {
+      font-size: 16px;
+      color: var(--gray-text);
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+
+    .showcase-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    @media (max-width: 860px) {
+      .showcase-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .showcase-img {
+      background: #f8fafc;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .showcase-img img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+
+    .showcase-content {
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .showcase-tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      background: var(--primary-light);
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+
+    .showcase-content h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .showcase-content p {
+      color: var(--gray-text);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .showcase-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .showcase-features li {
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--dark);
+      font-weight: 500;
+    }
+
+    .showcase-features li span {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Stores Grid */
+    .stores-section {
+      padding: 80px 0;
+      text-align: center;
+    }
+
+    .stores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 36px;
+    }
+
+    .store-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--dark);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      transition: all 0.15s;
+    }
+
+    .store-pill:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+    }
+
+    /* Features Grid */
+    .features-section {
+      padding: 80px 0;
+      background: #ffffff;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-box {
+      padding: 28px;
+      background: var(--light-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: all 0.15s;
+    }
+
+    .feature-box:hover {
+      border-color: var(--primary);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+
+    .feature-box h4 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-box p {
+      font-size: 14px;
+      color: var(--gray-text);
+      line-height: 1.6;
+    }
+
+    /* Installation Steps */
+    .install-section {
+      padding: 80px 0;
+      background: var(--light-bg);
+      border-top: 1px solid var(--border);
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 36px;
+    }
+
+    @media (max-width: 768px) {
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .step-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      position: relative;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    .step-card h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step-card p {
+      font-size: 14px;
+      color: var(--gray-text);
+      line-height: 1.5;
+    }
+
+    .step-card code {
+      display: block;
+      margin-top: 8px;
+      background: #f1f5f9;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #0f172a;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 14px;
+      color: var(--gray-text);
+    }
+
+    footer a {
+      color: var(--primary-dark);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container nav-wrapper">
+      <a href="#" class="brand">
+        <img src="assets/logo.png" alt="Aitohinta Logo">
+        Aito<span>hinta</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#showcase">Kuvat</a></li>
+        <li><a href="#stores">Tuetut kaupat</a></li>
+        <li><a href="#features">Ominaisuudet</a></li>
+        <li><a href="#install">Asennus</a></li>
+        <li><a href="https://github.com/omaquu/Aitohinta" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+        <li><a href="aitohinta-firefox.zip" class="btn-header">Lataa Firefoxille</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="pill-badge">
+        ✨ Uusi versio 1.2.0 julkaistu
+      </div>
+      <h1>Paljasta <span>feikkialennukset</span> suoraan verkkokaupoissa.</h1>
+      <p>
+        Aitohinta laskee tuotteen todellisen normihinnan historiallisen datan perusteella, näyttää hintakäyrän ja vertaa hinnat Hinta.fi-, Hintaopas- ja Vertaa.fi-palveluista suoraan kaupan tuotesivulla.
+      </p>
+
+      <div class="cta-group">
+        <a href="aitohinta-firefox.zip" class="btn-primary" download>
+          🦊 Lataa Firefox-laajennus (.zip)
+        </a>
+        <div class="chrome-badge">
+          <span>🌐 Chrome-laajennus:</span>
+          <span class="tag">Tulossa pian (Coming soon)</span>
+        </div>
+        <a href="https://github.com/omaquu/Aitohinta" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+          ⭐ Katso koodi GitHubissa
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots & Showcase -->
+  <section class="showcase" id="showcase">
+    <div class="container">
+      <div class="section-title">
+        <h2>Miltä Aitohinta näyttää käytössä?</h2>
+        <p>Widget asettuu luonnollisesti osaksi verkkokauppaa suoraan hinnan viereen ilman häiritseviä mainoksia.</p>
+      </div>
+
+      <div class="showcase-grid">
+
+        <!-- Card 1: Gigantti -->
+        <div class="showcase-card">
+          <div class="showcase-img">
+            <img src="assets/gigantti_esimerkki.jpg" alt="Aitohinta Gigantti tuotesivulla">
+          </div>
+          <div class="showcase-content">
+            <span class="showcase-tag">Gigantti.fi</span>
+            <h3>Oikea normihinta & todellinen säästö</h3>
+            <p>
+              Kauppa väittää säästöksi 130 €? Aitohinta vertaa myyntihintaa tuotteen todelliseen toteutuneeseen keskihintaan ja paljastaa heti, onko kyseessä aito alennus vai keinotekoisesti nostettu normihinta.
+            </p>
+            <ul class="showcase-features">
+              <li><span>✓</span> Näyttää todellisen säästön euroina ja prosentteina</li>
+              <li><span>✓</span> Vihreä tai punainen hälytys nuolilla (↓ / ↑)</li>
+              <li><span>✓</span> Asettuu suoraan hinnan viereen ostolaatikkoon</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Card 2: Verkkokauppa.com -->
+        <div class="showcase-card">
+          <div class="showcase-img">
+            <img src="assets/verkkokauppa_tuote.png" alt="Aitohinta Verkkokauppa.com tuotesivulla">
+          </div>
+          <div class="showcase-content">
+            <span class="showcase-tag">Verkkokauppa.com</span>
+            <h3>Hintahistoriakäyrä & hintaennuste</h3>
+            <p>
+              Hiiren viemällä widgetin päälle aukeaa interaktiivinen hintakäyrä. Pisteitä osoittamalla näet tarkalleen missä kaupassa ja minä päivänä tuote on ollut tarjouksessa.
+            </p>
+            <ul class="showcase-features">
+              <li><span>✓</span> Interaktiivinen SVG-hintakäyrä ja kauppakohtaiset pisteet</li>
+              <li><span>✓</span> Hintaennuste: arvio koska hinta seuraavan kerran putoaa</li>
+              <li><span>✓</span> Klikattavat suorat linkit edullisimpiin kauppoihin</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Card 3: Listing page -->
+        <div class="showcase-card">
+          <div class="showcase-img">
+            <img src="assets/tuotelistaus_verkkokauppa.png" alt="Aitohinta tuotekatalogissa ja hakutuloksissa">
+          </div>
+          <div class="showcase-content">
+            <span class="showcase-tag">Tuotekatalogit & Hakutulokset</span>
+            <h3>Vertailu jo tuotelistauksissa</h3>
+            <p>
+              Sinun ei tarvitse avata kymmeniä välilehtiä. Aitohinta lisää pienet, nopeat vertailumerkit suoraan hakutulossivun tuotekortteihin.
+            </p>
+            <ul class="showcase-features">
+              <li><span>✓</span> Kompakti pilleri suoraan hinnan vieressä</li>
+              <li><span>✓</span> Näyttää jos tuote löytyy halvemmalla toisesta kaupasta</li>
+              <li><span>✓</span> Leijuva popover tarkemmilla tiedoilla ja linkeillä</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported Stores -->
+  <section class="stores-section" id="stores">
+    <div class="container">
+      <div class="section-title">
+        <h2>Mihin sivustoihin Aitohinta toimii?</h2>
+        <p>Toimii automaattisesti Suomen suosituimmissa elektroniikka- ja kodinkoneverkkokaupoissa.</p>
+      </div>
+
+      <div class="stores-grid">
+        <div class="store-pill">🛒 Gigantti.fi</div>
+        <div class="store-pill">🛒 Verkkokauppa.com</div>
+        <div class="store-pill">⚡ Power.fi</div>
+        <div class="store-pill">💻 Proshop.fi</div>
+        <div class="store-pill">🎮 Jimms.fi</div>
+        <div class="store-pill">🖥️ Dustinhome.fi</div>
+        <div class="store-pill">📦 Multitronic.fi</div>
+        <div class="store-pill">🏷️ CDON.fi</div>
+        <div class="store-pill">🌐 Amazon (.fi / .de)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>Miksi käyttää Aitohintaa?</h2>
+        <p>Kaikki tarvittavat työkalut järkevään ostamiseen ilman ylimääräistä vaivaa.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-box">
+          <div class="feature-icon">🚨</div>
+          <h4>Feikkialennusten paljastin</h4>
+          <p>Tekoäly ja algoritmit analysoivat aiemman hintadatan ja laskevat todellisen säästön toteutuneesta keskihinnasta.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon">📈</div>
+          <h4>Interaktiivinen hintakäyrä</h4>
+          <p>Vie hiiri kuvaajan pisteiden päälle ja näet mitkä kaupat ovat myyneet tuotetta kyseisenä päivänä ja mihin hintaan.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon">📅</div>
+          <h4>Hintaennuste & ajoitus</h4>
+          <p>Näyttää ajoittuuko alennukset tyypillisesti Black Fridayhin, tammialeihin tai kesäkauteen, jotta tiedät kannattaako odottaa.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon">🔗</div>
+          <h4>3-in-1 Monilähdehaku</h4>
+          <p>Hakee tiedot sekä Hinta.fi:stä että Hintaopas.fi:stä ja tarjoaa suorat pikahaun linkit Vertaa.fi-palveluun.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon">🎯</div>
+          <h4>Mallikoodien tarkistus</h4>
+          <p>Tunnistaa laitteiden tarkat mallikoodit (kuten S32FG812SU tai NA352/00), joten tuotteet eivät sekoitu vääriin malleihin.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon">🛡️</div>
+          <h4>Yksityinen & Kevyt</h4>
+          <p>Ei käyttäjäseurantaa, ei mainoksia eikä ylimääräistä datankeruuta. Täysin avointa lähdekoodia.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Guide -->
+  <section class="install-section" id="install">
+    <div class="container">
+      <div class="section-title">
+        <h2>Helppo asennus Firefoxiin (1 minuutti)</h2>
+        <p>Voit ottaa laajennuksen heti käyttöön kehittäjätilassa.</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h4>Lataa ja pura paketti</h4>
+          <p>Lataa <strong>aitohinta-firefox.zip</strong> alla olevasta napista ja pura se haluamaasi kansioon tietokoneellasi.</p>
+          <a href="aitohinta-firefox.zip" class="btn-primary" style="margin-top: 12px; padding: 10px 18px; font-size: 14px;" download>
+            📥 Lataa .zip
+          </a>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h4>Avaa Firefoxin lisäosasivu</h4>
+          <p>Kirjoita Firefoxin osoiteriville:</p>
+          <code>about:debugging#/runtime/this-firefox</code>
+          <p style="margin-top: 8px;">ja paina Enter.</p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h4>Lataa lisäosa</h4>
+          <p>Klikkaa <strong>"Lataa tilapäinen lisäosa…"</strong> ja valitse purkamastasi kansiosta tiedosto:</p>
+          <code>manifest.json</code>
+          <p style="margin-top: 8px;">Valmis! Laajennus on nyt aktiivinen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p style="margin-bottom: 8px;">
+        <strong>Aitohinta</strong> – Avointa lähdekoodia (MIT Lisenssi).
+      </p>
+      <p>
+        Lähdekoodi ja kehitys: <a href="https://github.com/omaquu/Aitohinta" target="_blank" rel="noopener noreferrer">github.com/omaquu/Aitohinta</a> | Tekijä: <a href="https://github.com/omaquu">@omaquu</a>
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
