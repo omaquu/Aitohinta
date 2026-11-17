@@ -2,7 +2,7 @@
 
 Tämä lista sisältää toteutetut ominaisuudet sekä tulevat kehityskohteet.
 
-## ✅ Toteutetut ominaisuudet (v1.2.0)
+## ✅ Toteutetut ominaisuudet (v1.3.0)
 - [x] **Ostolaatikon automaattinen tunnistus ja sijoittelu**:
   - Gigantti.fi: Kohdistuu `[data-cro="pdp-main-price-box"]` / `[data-cro="pdp-buy-box"]` hinnan viereen.
   - Verkkokauppa.com: Kohdistuu `<aside>`-ostosarakkeen hintalohkoon `[class*='stm-price__root']`.
@@ -16,12 +16,19 @@ Tämä lista sisältää toteutetut ominaisuudet sekä tulevat kehityskohteet.
 - [x] **Hintaennuste & ajoitus**:
   - Analysoi vanhoja hintapudotuksia ja antaa arvion koska hinta todennäköisesti seuraavan kerran laskee (esim. marraskuussa / Black Friday).
   - Hover-infoteksti (`ℹ️`), joka selittää miksi arvio on tehty.
+- [x] **Hintaopas.fi JSON API -integraatio**:
+  - Hakee tuotteet Hintaopas.fi:n nopeasta JSON-rajapinnasta (`/api/search-suggestions`).
+  - Ei enää luota raskaaseen HTML-scrapingiin – JSON on nopea ja luotettava.
+  - Hakee tuotetiedot ja kauppatarjoukset Hintaopas-tuotesivulta (JSON-LD).
 - [x] **3-in-1 Monilähdehaku**:
   - Hakee ensisijaisesti Hinta.fi:stä (koko hintahistoria ja kauppalinkit).
-  - Varajärjestelmänä Hintaopas.fi (Schema.org JSON-LD).
+  - Varajärjestelmänä Hintaopas.fi (JSON API + tuotesivu).
   - Suorat 1-klikkauksen hakulinkit Hinta.fi-, Hintaopas.fi- ja Vertaa.fi-palveluihin.
-- [x] **Tuotelistaustuki (hakutulokset ja kategoriat)**:
-  - Kompaktit merkit tuotekorttien hinnan viereen ja leijuva vertailuikkuna.
+- [x] **Tuotelistaus: "Hae hinta" -nappi (ei automaattista hakua)**:
+  - Tuotelistausnäkymissä (hakutulokset, kategoriat) ei enää haeta hintoja automaattisesti kaikilta tuotteilta.
+  - Jokaisen tuotekortin kohdalle tulee `💰 Hae hinta` -nappi josta käyttäjä voi hakea vertailuhinnan yksittäiselle tuotteelle.
+  - Estää rate limiting / flood protection -ongelmia hintavertailusivustoilla.
+  - Yksittäisen tuotteen sivulla hinnat haetaan edelleen automaattisesti.
 - [x] **Esittelysivusto (GitHub Pages)**:
   - Sivusto `docs/index.html` kuvakaappauksineen, tuettuine kauppoineen ja latauslinkkeineen.
   - Ilmoitus: *Chrome plugin coming soon*.
