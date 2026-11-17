@@ -70,7 +70,10 @@
       return /\/product\//.test(location.pathname) || !!document.querySelector('[data-cro="pdp-buy-box"], [data-testid="pdp-buy-box"]');
     }
     if (host.includes("proshop")) {
-      return /\/\d{5,8}\/?$/.test(location.pathname) || !!document.querySelector(".site-currency-attention, .site-product-priceRelationsStockContainer");
+      const path = location.pathname;
+      if (/search|haku|kategoria|category|catalog/i.test(path)) return false;
+      if (document.querySelector(".site-product-list, #site-product-list, .site-product-list-item")) return false;
+      return /\/\d{5,9}(\/|$)/.test(path) || !!document.querySelector(".site-product-priceRelationsStockContainer, h1.site-product-title");
     }
     if (host.includes("power.fi")) {
       return /\/product\//.test(location.pathname);
@@ -200,6 +203,12 @@
 
   // ── Find Product Title ───────────────────────────────────────
   function findProductName() {
+    // 1. Store-specific title selectors if available
+    const specificH1 = document.querySelector("h1.site-product-title, [data-cro='pdp-product-title'], [data-testid*='product-title'], [class*='ProductTitle']");
+    if (specificH1 && specificH1.textContent.trim().length > 3) {
+      return specificH1.textContent.trim();
+    }
+
     try {
       const scripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (let k = 0; k < scripts.length; k++) {
@@ -218,7 +227,7 @@
 
     const og = document.querySelector("meta[property='og:title']");
     if (og && og.content && og.content.length > 3) {
-      return og.content.replace(/\s*[-–|].*$/, "").trim();
+      return og.content.replace(/\s*[-–|]\s*(proshop|gigantti|verkkokauppa|power|elisa|dna|telia|prisma|tokmanni|edullinen).*$/i, "").trim();
     }
     return null;
   }
@@ -314,9 +323,10 @@
             claimedNorm = parsePrice(prevEl.textContent);
           }
 
-          // Anchor directly at the buy/price container in main view
-          const buyContainer = mainPriceEl.closest(".site-currency-wrapper") ||
-                               mainPriceEl.closest(".site-product-priceRelationsStockContainer, .site-product-stock-price-buy") ||
+          // Anchor directly below the main buy/price container in main view
+          const buyContainer = mainPriceEl.closest(".site-product-priceRelationsStockContainer, .site-product-stock-price-buy, [class*='priceRelations'], [class*='stock-price']") ||
+                               mainPriceEl.closest(".site-currency-wrapper")?.parentElement ||
+                               mainPriceEl.closest(".site-currency-wrapper") ||
                                mainPriceEl;
 
           anchor = buyContainer || mainPriceEl;
@@ -890,8 +900,24 @@
     }
 
     if (host.includes("proshop")) {
-      const cards = document.querySelectorAll(".site-product-list-item, li[class*='product']");
-      cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
+      // 1. By product links (every product in Proshop has a 6-8 digit ID in its link)
+      const allLinks = document.querySelectorAll("a[href]");
+      allLinks.forEach((a) => {
+        const href = a.getAttribute("href") || "";
+        if (/\/\d{6,8}(\/|$)/.test(href) && !href.includes("cart") && !href.includes("login") && !href.includes("kori")) {
+          let p = a.parentElement;
+          for (let i = 0; i < 6 && p && p !== document.body; i++) {
+            if (p.tagName === "LI" || p.tagName === "ARTICLE" || (p.className && (String(p.className).includes("product") || String(p.className).includes("item")))) {
+              if (!cardElements.includes(p)) cardElements.push(p);
+              break;
+            }
+            p = p.parentElement;
+          }
+        }
+      });
+      // 2. Direct selectors
+      const directCards = document.querySelectorAll(".site-product-list-item, li[class*='product'], div[class*='site-product-list-item'], [data-product-id], ul.site-product-list > li");
+      directCards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
     }
 
     if (host.includes("prisma")) {
@@ -919,7 +945,7 @@
 
     for (const card of pending) {
       let title = "";
-      const tEl = card.querySelector("h2, h3, h4, a[class*='title'], a[href*='/product']");
+      const tEl = card.querySelector("h2, h3, h4, a.site-product-link, [class*='product-title'], [class*='title'], a[class*='name'], a[href*='/product'], a[href]");
       if (tEl) title = tEl.textContent.trim();
       if (!title || title.length < 5) continue;
 

@@ -7,6 +7,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 let currentPageInfo = null;
 let searchResults = [];
 let selectedProduct = null;
+let currentAltResult = null;
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
@@ -15,6 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#product-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") onSearch();
   });
+
+  // Automatically detect product when opening the popup from toolbar!
+  onAutoDetect();
 });
 
 async function onAutoDetect() {
@@ -87,7 +91,7 @@ async function onSearch() {
 async function searchHintaFi(productName) {
   try {
     const response = await browser.runtime.sendMessage({
-      action: "searchHintaFi",
+      action: "searchMultiSource",
       productName,
     });
 
@@ -100,11 +104,12 @@ async function searchHintaFi(productName) {
       return;
     }
 
-    searchResults = response.results;
+    searchResults = response.results || [];
+    currentAltResult = response.altResult || null;
 
     if (searchResults.length === 0) {
       showError(
-        'Tuotetta ei löytynyt hinta.fi:stä. Kokeile eri hakusanaa tai avaa <a href="https://hinta.fi" style="color: #3498db;">hinta.fi</a> suoraan.'
+        'Tuotetta ei löytynyt vertailupalveluista. Kokeile eri hakusanaa tai avaa <a href="https://hinta.fi" target="_blank" style="color: #10b981;">hinta.fi</a> tai <a href="https://hintaopas.fi" target="_blank" style="color: #10b981;">hintaopas.fi</a> suoraan.'
       );
       return;
     }
@@ -113,7 +118,7 @@ async function searchHintaFi(productName) {
     showSearchResults(searchResults, response.searchUrl);
 
     // Auto-select best match
-    if (searchResults[0].matchPercent >= 40) {
+    if (searchResults[0].matchPercent >= 35) {
       await selectProduct(searchResults[0]);
     }
   } catch (err) {
@@ -171,8 +176,12 @@ async function selectProduct(product) {
         : "low");
 
   // Set link to full history page
-  const histUrl = product.url.split("?")[0].replace(/\/+$/, "") + "/historia?l=1";
+  let histUrl = product.url;
+  if (product.source === "hintafi" || product.url.includes("hinta.fi")) {
+    histUrl = product.url.split("?")[0].replace(/\/+$/, "") + "/historia?l=1";
+  }
   $("#open-hintafi").href = histUrl;
+  $("#open-hintafi").textContent = `📈 Avaa ${product.source === "hintaopas" ? "Hintaopas.fi" : "Hinta.fi"} -historia ja kaupat ➔`;
   $("#open-hintafi").onclick = (e) => {
     e.preventDefault();
     browser.tabs.create({ url: histUrl });
@@ -191,26 +200,81 @@ async function selectProduct(product) {
   $("#real-deal-alert").classList.add("hidden");
   $("#stores-section").classList.add("hidden");
 
-  // Fetch product details
+  // Fetch product details with source and dual-source fallback
   try {
-    const response = await browser.runtime.sendMessage({
-      action: "getProductDetails",
-      url: product.url,
-    });
-
-    if (response && response.success && response.data) {
-      displayProductDetails(response.data, product);
-    } else {
-      $("#lowest-price").textContent = "-";
-      $("#average-price").textContent = "-";
-      $("#current-lowest-price").textContent = product.currentLowestPrice
-        ? formatPrice(product.currentLowestPrice)
-        : "-";
+    let data = null;
+    try {
+      const response = await browser.runtime.sendMessage({
+        action: "getProductDetails",
+        url: product.url,
+        source: product.source || (product.url.includes("hintaopas") ? "hintaopas" : "hintafi"),
+      });
+      if (response && response.success && response.data) {
+        data = response.data;
+      }
+    } catch (e) {
+      console.error("Error fetching details:", e);
     }
+
+    if (!data) data = {};
+
+    // Fallback if primary has no history or average price
+    if (currentAltResult && currentAltResult.url && currentAltResult.source !== product.source) {
+      const hasGoodHistory = data.historyPoints && data.historyPoints.length >= 2;
+      if (!hasGoodHistory || !data.averagePrice) {
+        try {
+          const altRes = await browser.runtime.sendMessage({
+            action: "getProductDetails",
+            url: currentAltResult.url,
+            source: currentAltResult.source,
+          });
+          const altData = altRes && altRes.success ? altRes.data : null;
+          if (altData) {
+            if (altData.historyPoints && altData.historyPoints.length > (data.historyPoints || []).length) {
+              data.historyPoints = altData.historyPoints;
+              data.lowestEver = altData.lowestEver || data.lowestEver;
+              data.highestEver = altData.highestEver || data.highestEver;
+              data.averagePrice = altData.averagePrice || data.averagePrice;
+              data.historyUrl = altData.historyUrl || currentAltResult.url;
+            }
+            if ((!data.stores || data.stores.length === 0) && altData.stores && altData.stores.length > 0) {
+              data.stores = altData.stores;
+            }
+            if (!data.currentLowest && altData.currentLowest) {
+              data.currentLowest = altData.currentLowest;
+            }
+          }
+        } catch (e) {
+          console.error("Alt details error in popup:", e);
+        }
+      }
+    }
+
+    // Calculate average and lowest if missing but historyPoints exists
+    if (data.historyPoints && data.historyPoints.length > 0) {
+      const prices = data.historyPoints.map((p) => p.price).filter((p) => p && p > 0);
+      if (prices.length > 0) {
+        if (!data.lowestEver) data.lowestEver = Math.min(...prices);
+        if (!data.highestEver) data.highestEver = Math.max(...prices);
+        if (!data.averagePrice) {
+          const sum = prices.reduce((a, b) => a + b, 0);
+          data.averagePrice = Math.round((sum / prices.length) * 100) / 100;
+        }
+      }
+    }
+
+    if (!data.currentLowest && product.currentLowestPrice) {
+      data.currentLowest = product.currentLowestPrice;
+    }
+
+    displayProductDetails(data, product);
   } catch (err) {
-    console.error("Error fetching details:", err);
-    $("#lowest-price").textContent = "Virhe";
-    $("#average-price").textContent = "Virhe";
+    console.error("Error in selectProduct:", err);
+    $("#lowest-price").textContent = "-";
+    $("#average-price").textContent = "-";
+    $("#current-lowest-price").textContent = product.currentLowestPrice
+      ? formatPrice(product.currentLowestPrice)
+      : "-";
   }
 }
 
