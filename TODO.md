@@ -2,31 +2,18 @@
 
 Tämä lista sisältää toteutetut ominaisuudet sekä tulevat kehityskohteet.
 
-## ✅ Toteutetut ominaisuudet (v1.3.0)
-- [x] **Ostolaatikon automaattinen tunnistus ja sijoittelu**:
-  - Gigantti.fi: Kohdistuu `[data-cro="pdp-main-price-box"]` / `[data-cro="pdp-buy-box"]` hinnan viereen.
-  - Verkkokauppa.com: Kohdistuu `<aside>`-ostosarakkeen hintalohkoon `[class*='stm-price__root']`.
-  - Proshop.fi: Kohdistuu `.site-currency-attention` ostolohkoon.
-- [x] **Feikkialennusten tunnistus & todellinen säästö**:
-  - Laskee oikean säästön vanhojen hintojen keskiarvon (normihinnan) perusteella.
-  - Näyttää säästön sekä euroina että todellisena prosenttina (esim. `79 € (-19%)`).
-  - Suuntanuoli: vihreä `↓` aidolle alennukselle, punainen `↑` feikkialennukselle (+X% yli keskihinnan).
-- [x] **Interaktiivinen SVG-hintakäyrä**:
-  - Kuvaajan pisteitä osoittamalla näkee mitkä kaupat ovat myyneet tuotetta kyseisenä päivänä ja mihin hintaan.
-- [x] **Hintaennuste & ajoitus**:
-  - Analysoi vanhoja hintapudotuksia ja antaa arvion koska hinta todennäköisesti seuraavan kerran laskee (esim. marraskuussa / Black Friday).
-  - Hover-infoteksti (`ℹ️`), joka selittää miksi arvio on tehty.
-- [x] **Hintaopas.fi JSON API -integraatio**:
-  - Hakee tuotteet Hintaopas.fi:n nopeasta JSON-rajapinnasta (`/api/search-suggestions`).
-  - Ei enää luota raskaaseen HTML-scrapingiin – JSON on nopea ja luotettava.
-  - Hakee tuotetiedot ja kauppatarjoukset Hintaopas-tuotesivulta (JSON-LD).
-- [x] **3-in-1 Monilähdehaku**:
-  - Hakee ensisijaisesti Hinta.fi:stä (koko hintahistoria ja kauppalinkit).
-  - Varajärjestelmänä Hintaopas.fi (JSON API + tuotesivu).
-  - Suorat 1-klikkauksen hakulinkit Hinta.fi-, Hintaopas.fi- ja Vertaa.fi-palveluihin.
+## ✅ Toteutetut ominaisuudet (v1.3.1)
+- [x] **Hintaopas.fi täysi hintahistoria- & kauppaparsinta**:
+  - Hakee ja parsii Hintaopas.fi:n tuotesivun koko `historyItems`-hintahistorian (Next.js-streamista).
+  - Tuottaa täydellisen interaktiivisen SVG-hintakäyrän pisteineen, päivämäärineen ja kauppakohtaisine tarjouksineen myös silloin kun Hinta.fi on poissa käytöstä tai ei löydä tuotetta.
+  - Laskee Hintaopas-datalle alimman koskaan, korkeimman, keskihinnan (oikea normihinta) ja hintaennusteen.
+  - Parsii nykyiset myyvät kaupat ja niiden hinnat klikattavaksi listaksi.
+- [x] **Saumaton automaattinen varalähde-fallback**:
+  - Jos Hinta.fi ei vastaa tai tuotetta ei löydy, extension ottaa välittömästi käyttöön Hintaopas.fi:n tulokset hintahistorioineen.
+  - Tuotelistauksissa ja tuotesivulla `getProductDetails` hakee aina täydet hintatiedot lähteestä riippumatta.
 - [x] **Tuotelistaus: "Hae hinta" -nappi (ei automaattista hakua)**:
   - Tuotelistausnäkymissä (hakutulokset, kategoriat) ei enää haeta hintoja automaattisesti kaikilta tuotteilta.
-  - Jokaisen tuotekortin kohdalle tulee `💰 Hae hinta` -nappi josta käyttäjä voi hakea vertailuhinnan yksittäiselle tuotteelle.
+  - Jokaisen tuotekortin kohdalle tulee `💰 Hae hinta` -nappi, jota klikkaamalla haetaan vertailuhinta vain kyseiselle tuotteelle.
   - Estää rate limiting / flood protection -ongelmia hintavertailusivustoilla.
   - Yksittäisen tuotteen sivulla hinnat haetaan edelleen automaattisesti.
 - [x] **Esittelysivusto (GitHub Pages)**:

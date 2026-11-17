@@ -638,22 +638,26 @@
       log("Best match:", best.name, "match:", best.matchPercent, "source:", best.source);
 
       let details = {};
-      if (best.source === "hintafi") {
+      try {
         const detailsRes = await browser.runtime.sendMessage({
           action: "getProductDetails",
           url: best.url,
           source: best.source,
         });
         details = detailsRes && detailsRes.success ? detailsRes.data : {};
-      } else {
-        details = {
-          productName: best.name,
-          currentLowest: best.currentLowestPrice,
-          highestEver: best.highestPrice || null,
-          historyUrl: best.url,
-          stores: [],
-          historyPoints: [],
-        };
+      } catch (e) {
+        log("getProductDetails error:", e);
+      }
+
+      // Fallback fields if details call returned partial data
+      if (!details.currentLowest && best.currentLowestPrice) {
+        details.currentLowest = best.currentLowestPrice;
+      }
+      if (!details.productName && best.name) {
+        details.productName = best.name;
+      }
+      if (!details.historyUrl) {
+        details.historyUrl = best.url;
       }
 
       renderProductPageWidget(
@@ -777,15 +781,18 @@
             if (searchRes && searchRes.results && searchRes.results.length > 0) {
               const best = searchRes.results[0];
               let details = {};
-              if (best.source === "hintafi") {
+              try {
                 const detailsRes = await browser.runtime.sendMessage({
                   action: "getProductDetails",
                   url: best.url,
                   source: best.source,
                 });
                 details = detailsRes && detailsRes.success ? detailsRes.data : {};
-              } else {
-                details = { currentLowest: best.currentLowestPrice };
+              } catch (e) {
+                log("Listing getProductDetails error:", e);
+              }
+              if (!details.currentLowest && best.currentLowestPrice) {
+                details.currentLowest = best.currentLowestPrice;
               }
               cached = { best, details };
               listingCache.set(title, cached);
