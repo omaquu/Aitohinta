@@ -6,6 +6,7 @@
 const HINTA_BASE = "https://hinta.fi";
 const HINTA_SEARCH_URL = "https://hinta.fi/haku?q=";
 const HINTAOPAS_SEARCH_URL = "https://hintaopas.fi/search?query=";
+const HINTAOPAS_API_URL = "https://hintaopas.fi/api/search-suggestions?q=";
 
 // In-memory cache to prevent repeated fetches
 const searchCache = new Map();
@@ -344,36 +345,58 @@ async function executeHintaSearch(productName) {
   };
 }
 
-// ── Execute Hintaopas.fi Search ─────────────────────────────────
+// ── Execute Hintaopas.fi Search (JSON API) ──────────────────────
 async function executeHintaopasSearch(productName) {
   const queries = buildSearchQueries(productName);
 
-  for (const q of queries.slice(0, 2)) {
+  for (const q of queries.slice(0, 4)) {
     try {
-      const searchUrl = HINTAOPAS_SEARCH_URL + encodeURIComponent(q);
-      const res = await fetchWithTimeout(searchUrl, {
+      const apiUrl = HINTAOPAS_API_URL + encodeURIComponent(q);
+      const res = await fetchWithTimeout(apiUrl, {
         headers: {
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept": "application/json",
           "Accept-Language": "fi-FI,fi;q=0.9",
         },
       }, 3500);
 
       if (!res || !res.ok) continue;
 
-      const html = await res.text();
-      const results = parseHintaopasSearchResults(html, productName);
+      const json = await res.json();
+      const items = json.value || json || [];
 
-      if (results.length > 0) {
+      if (!Array.isArray(items) || items.length === 0) continue;
+
+      const results = items
+        .filter((item) => item.product && item.product.name)
+        .map((item) => {
+          const p = item.product;
+          const url = `https://hintaopas.fi/product.php?p=${p.id}`;
+          return {
+            source: "hintaopas",
+            name: p.name,
+            url,
+            hintaopasId: p.id,
+            currentLowestPrice: p.price || null,
+            imageUrl: p.imageUrl || null,
+            categoryName: p.categoryName || null,
+            storeCount: null,
+            matchPercent: computeSimilarity(productName, p.name),
+          };
+        });
+
+      results.sort((a, b) => b.matchPercent - a.matchPercent);
+
+      if (results.length > 0 && results[0].matchPercent >= 40) {
         return {
           success: true,
           source: "hintaopas",
           results,
-          searchUrl,
+          searchUrl: HINTAOPAS_SEARCH_URL + encodeURIComponent(q),
           usedQuery: q,
         };
       }
     } catch (e) {
-      // Timeout or network error
+      // Timeout or network error, try next query
     }
   }
 
@@ -451,10 +474,75 @@ async function fetchProductDetails(productUrl, source = "hintafi") {
     historyUrl: historyUrl,
   };
 
-  // If source is Hintaopas, we might not have Hinta.fi's custom history endpoint
+  // If source is Hintaopas, fetch product page HTML for store offers
   if (source === "hintaopas" || productUrl.includes("hintaopas.fi")) {
     details.productUrl = productUrl;
     details.historyUrl = productUrl;
+
+    try {
+      const prodRes = await fetchWithTimeout(productUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "fi-FI,fi;q=0.9",
+        },
+      }, 4000);
+
+      if (prodRes && prodRes.ok) {
+        const html = await prodRes.text();
+
+        // Extract product name from title
+        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+        if (titleMatch) {
+          details.productName = titleMatch[1].replace(/\s*[-–|].*$/, "").trim();
+        }
+
+        // Extract store offers from JSON-LD or structured data
+        const ldMatches = html.match(/<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+        for (const m of ldMatches) {
+          try {
+            const jsonStr = m.replace(/<script[^>]*>/i, "").replace(/<\/script>/i, "").trim();
+            const data = JSON.parse(jsonStr);
+            if (data["@type"] === "Product" && data.offers) {
+              const offers = data.offers;
+              if (offers.lowPrice) details.lowestEver = parseFloat(offers.lowPrice);
+              if (offers.highPrice) details.highestEver = parseFloat(offers.highPrice);
+              if (offers.offerCount) details.storeCount = parseInt(offers.offerCount, 10);
+
+              // Individual offers
+              const offerList = offers.offers || (Array.isArray(offers) ? offers : []);
+              for (const o of offerList) {
+                if (o.price && o.seller && o.seller.name) {
+                  details.stores.push({
+                    name: o.seller.name,
+                    price: parseFloat(o.price),
+                    delivery: "",
+                    storeUrl: o.url || productUrl,
+                  });
+                }
+              }
+            }
+          } catch (e) {}
+        }
+
+        // Also try to parse store info from visible HTML patterns
+        // Hintaopas shows store offer blocks with price and store name
+        const storeBlockRegex = /(?:class="[^"]*shop[^"]*"|data-shop)[^>]*>[\s\S]*?(\d+[.,]\d{2})\s*€/gi;
+        // This is a fallback - JSON-LD is preferred
+
+        if (details.stores.length > 0) {
+          details.stores.sort((a, b) => a.price - b.price);
+          details.currentLowest = details.stores[0].price;
+        }
+
+        // Compute average from low+high if available
+        if (details.lowestEver && details.highestEver) {
+          details.averagePrice = Math.round(((details.lowestEver + details.highestEver) / 2) * 100) / 100;
+        }
+      }
+    } catch (err) {
+      // Timeout or network error
+    }
+
     detailsCache.set(productUrl, details);
     return details;
   }

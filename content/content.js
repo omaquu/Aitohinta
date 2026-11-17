@@ -687,6 +687,8 @@
   }
 
   // ── Category / Search Listing Scanner ─────────────────────────
+  // Shows a "Hae hinta" button on each listing card instead of auto-fetching
+  // to avoid flood protection / rate limiting from price comparison sites
   async function scanProductListings() {
     if (isProductPage()) return;
     if (isScanningListings) return;
@@ -719,7 +721,7 @@
 
     const pending = cardElements
       .filter((c) => !c.querySelector(".hf-listing-badge-container"))
-      .slice(0, 6);
+      .slice(0, 20);
 
     if (pending.length === 0) return;
 
@@ -742,78 +744,117 @@
         card.lastElementChild;
       if (!priceAnchor) continue;
 
-      let cached = listingCache.get(title);
-      if (!cached) {
-        try {
-          const searchRes = await browser.runtime.sendMessage({
-            action: "searchMultiSource",
-            productName: title,
-          });
-
-          if (searchRes && searchRes.results && searchRes.results.length > 0) {
-            const best = searchRes.results[0];
-            let details = {};
-            if (best.source === "hintafi") {
-              const detailsRes = await browser.runtime.sendMessage({
-                action: "getProductDetails",
-                url: best.url,
-                source: best.source,
-              });
-              details = detailsRes && detailsRes.success ? detailsRes.data : {};
-            } else {
-              details = { currentLowest: best.currentLowestPrice };
-            }
-            cached = { best, details };
-            listingCache.set(title, cached);
-          } else {
-            listingCache.set(title, { notFound: true });
-            continue;
-          }
-        } catch (e) {
-          continue;
-        }
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
-      if (cached.notFound || !cached.best) continue;
-
-      const best = cached.best;
-      const details = cached.details || {};
-      const avg = details.averagePrice;
-      const curLow = details.currentLowest || best.currentLowestPrice;
-
-      if (!avg && !curLow) continue;
-
-      const isCheaperElsewhere = cardPrice && curLow && cardPrice > curLow * 1.05;
-      const diffFromAvg = (cardPrice || curLow) - (avg || cardPrice || 0);
-      const pctFromAvg = avg ? Math.round((diffFromAvg / avg) * 100) : 0;
-      const extUrls = getExternalUrls(best.name || title);
-
+      // Create a "Hae hinta" button instead of auto-fetching
       const badgeContainer = document.createElement("div");
       badgeContainer.className = "hf-listing-badge-container";
       badgeContainer.innerHTML = `
-        <div class="hf-listing-pill">
-          <span>💰</span>
-          ${avg ? `<span class="hf-listing-norm">Norm. ~${fmt(avg)}</span>` : ""}
-          ${pctFromAvg < 0 ? `<span class="hf-listing-discount">↓ -${Math.abs(pctFromAvg)}%</span>` : ""}
-          ${isCheaperElsewhere ? `<span class="hf-listing-cheaper">Muualla: ${fmt(curLow)}</span>` : ""}
-          <span class="hf-listing-info-icon">ℹ️</span>
-        </div>
-        <div class="hf-listing-popover">
-          <div style="font-weight:700; color:#111827; margin-bottom:4px;">${esc(best.name)}</div>
-          <div>Vastaavuus: <strong>${best.matchPercent}%</strong></div>
-          ${avg ? `<div>Oikea normihinta: <strong>${fmt(avg)}</strong></div>` : ""}
-          ${curLow ? `<div>Halvin hinta nyt: <strong style="color:#059669;">${fmt(curLow)}</strong></div>` : ""}
-          ${details.lowestEver ? `<div>Alin koskaan: <strong>${fmt(details.lowestEver)}</strong></div>` : ""}
-          <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-            <a href="${esc(best.url)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Avaa tuote ➔</a>
-            <a href="${esc(extUrls.hintaopas)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Hintaopas ↗</a>
-            <a href="${esc(extUrls.vertaa)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Vertaa.fi ↗</a>
-          </div>
-        </div>
+        <button class="hf-listing-fetch-btn" title="Hae vertailuhinta tähän tuotteeseen">
+          💰 Hae hinta
+        </button>
       `;
 
       priceAnchor.insertAdjacentElement("afterend", badgeContainer);
+
+      // Attach click handler to fetch prices on demand
+      const btn = badgeContainer.querySelector(".hf-listing-fetch-btn");
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Show loading state
+        btn.disabled = true;
+        btn.textContent = "⏳ Haetaan…";
+        btn.classList.add("hf-listing-btn-loading");
+
+        try {
+          let cached = listingCache.get(title);
+          if (!cached) {
+            const searchRes = await browser.runtime.sendMessage({
+              action: "searchMultiSource",
+              productName: title,
+            });
+
+            if (searchRes && searchRes.results && searchRes.results.length > 0) {
+              const best = searchRes.results[0];
+              let details = {};
+              if (best.source === "hintafi") {
+                const detailsRes = await browser.runtime.sendMessage({
+                  action: "getProductDetails",
+                  url: best.url,
+                  source: best.source,
+                });
+                details = detailsRes && detailsRes.success ? detailsRes.data : {};
+              } else {
+                details = { currentLowest: best.currentLowestPrice };
+              }
+              cached = { best, details };
+              listingCache.set(title, cached);
+            } else {
+              listingCache.set(title, { notFound: true });
+            }
+          }
+
+          if (!cached || cached.notFound || !cached.best) {
+            const extUrls = getExternalUrls(title);
+            badgeContainer.innerHTML = `
+              <div class="hf-listing-pill hf-listing-not-found">
+                <span>💰</span>
+                <span class="hf-listing-norm">Ei osumaa</span>
+                <a href="${esc(extUrls.hintafi)}" target="_blank" class="hf-listing-link-btn" title="Hae Hinta.fi:stä">Hinta.fi ↗</a>
+                <a href="${esc(extUrls.hintaopas)}" target="_blank" class="hf-listing-link-btn" title="Hae Hintaopas:sta">Hintaopas ↗</a>
+              </div>
+            `;
+            return;
+          }
+
+          const best = cached.best;
+          const details = cached.details || {};
+          const avg = details.averagePrice;
+          const curLow = details.currentLowest || best.currentLowestPrice;
+
+          if (!avg && !curLow) {
+            badgeContainer.innerHTML = `
+              <div class="hf-listing-pill">
+                <span>💰</span>
+                <span class="hf-listing-norm">Ei hintatietoja</span>
+              </div>
+            `;
+            return;
+          }
+
+          const isCheaperElsewhere = cardPrice && curLow && cardPrice > curLow * 1.05;
+          const diffFromAvg = (cardPrice || curLow) - (avg || cardPrice || 0);
+          const pctFromAvg = avg ? Math.round((diffFromAvg / avg) * 100) : 0;
+          const extUrls = getExternalUrls(best.name || title);
+
+          badgeContainer.innerHTML = `
+            <div class="hf-listing-pill">
+              <span>💰</span>
+              ${avg ? `<span class="hf-listing-norm">Norm. ~${fmt(avg)}</span>` : ""}
+              ${pctFromAvg < 0 ? `<span class="hf-listing-discount">↓ -${Math.abs(pctFromAvg)}%</span>` : ""}
+              ${isCheaperElsewhere ? `<span class="hf-listing-cheaper">Muualla: ${fmt(curLow)}</span>` : ""}
+              <span class="hf-listing-info-icon">ℹ️</span>
+            </div>
+            <div class="hf-listing-popover">
+              <div style="font-weight:700; color:#111827; margin-bottom:4px;">${esc(best.name)}</div>
+              <div>Vastaavuus: <strong>${best.matchPercent}%</strong></div>
+              ${avg ? `<div>Oikea normihinta: <strong>${fmt(avg)}</strong></div>` : ""}
+              ${curLow ? `<div>Halvin hinta nyt: <strong style="color:#059669;">${fmt(curLow)}</strong></div>` : ""}
+              ${details.lowestEver ? `<div>Alin koskaan: <strong>${fmt(details.lowestEver)}</strong></div>` : ""}
+              <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
+                <a href="${esc(best.url)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Avaa tuote ➔</a>
+                <a href="${esc(extUrls.hintaopas)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Hintaopas ↗</a>
+                <a href="${esc(extUrls.vertaa)}" target="_blank" style="color:#2563eb; text-decoration:none; font-weight:700;">Vertaa.fi ↗</a>
+              </div>
+            </div>
+          `;
+        } catch (err) {
+          log("Listing fetch error:", err);
+          btn.textContent = "❌ Virhe – yritä uudelleen";
+          btn.disabled = false;
+          btn.classList.remove("hf-listing-btn-loading");
+        }
+      });
     }
 
     isScanningListings = false;

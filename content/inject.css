@@ -591,3 +591,72 @@
   transform: translateY(0) !important;
   pointer-events: auto !important;
 }
+
+
+/* ── Listing "Hae hinta" Button ── */
+.hf-listing-fetch-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 10px !important;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 14px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #047857 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  line-height: 1.4 !important;
+}
+
+.hf-listing-fetch-btn:hover {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important;
+  border-color: #059669 !important;
+  color: #065f46 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+  transform: translateY(-1px) !important;
+}
+
+.hf-listing-fetch-btn:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.15) !important;
+}
+
+.hf-listing-fetch-btn:disabled {
+  cursor: wait !important;
+  opacity: 0.75 !important;
+}
+
+.hf-listing-btn-loading {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #6b7280 !important;
+}
+
+.hf-listing-not-found {
+  border-color: #d1d5db !important;
+  background: #f9fafb !important;
+}
+
+.hf-listing-link-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 1px 6px !important;
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2563eb !important;
+  text-decoration: none !important;
+  transition: all 0.15s !important;
+}
+
+.hf-listing-link-btn:hover {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
