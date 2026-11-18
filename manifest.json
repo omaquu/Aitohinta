@@ -38,7 +38,8 @@
         "*://*.dna.fi/*",
         "*://*.telia.fi/*",
         "*://*.prisma.fi/*",
-        "*://*.tokmanni.fi/*"
+        "*://*.tokmanni.fi/*",
+        "*://*.veikonkone.fi/*"
       ],
       "js": ["content/content.js"],
       "css": ["content/inject.css"],

@@ -38,7 +38,10 @@ const FILLER_WORDS = [
   "pelitietokone", "näyttö", "pelinaeyttoe", "oled-näyttö", "monitori",
   "musta", "valkoinen", "hopea", "harmaa", "kuparinvärinen", "kupari", "black", "white", "silver", "grey",
   "dual", "basket", "xl", "xxl", "tarjous", "uutuus",
-  "pelikonsoli", "konsoli", "runko", "e-runko", "d-runko"
+  "pelikonsoli", "konsoli", "runko", "e-runko", "d-runko",
+  "älytelevisio", "televisio", "äly-tv", "smart tv", "smart-tv", "tv",
+  "astianpesukone", "tiskikone", "pyykinpesukone", "pesukone", "kuivausrumpu",
+  "jääkaappi", "pakastin", "jääkaappipakastin", "liesi", "lattialiesi", "uuni", "mikro"
 ];
 
 const KNOWN_SERIES = [
@@ -64,6 +67,17 @@ function extractModelCodes(text) {
         const base = t.replace(/[A-Za-z]{2}$/, "");
         if (base.length >= 4 && /\d/.test(base) && /[A-Za-z]/.test(base) && !codes.includes(base)) {
           codes.push(base);
+        }
+        // TV OLED codes like OLED65C4 -> OLED C4
+        const mOled = t.match(/^oled\d{2}([a-z]\d+)/i);
+        if (mOled) {
+          const oledSeries = `OLED ${mOled[1].toUpperCase()}`;
+          if (!codes.includes(oledSeries)) codes.push(oledSeries);
+        }
+        // Sub-series prefix for long appliance codes (e.g. SMS4ECI26E -> SMS4)
+        const mAppliance = t.match(/^([A-Za-z]{2,4}\d{1,2})/);
+        if (mAppliance && mAppliance[1].length >= 4 && mAppliance[1] !== t) {
+          if (!codes.includes(mAppliance[1])) codes.push(mAppliance[1]);
         }
       }
     }

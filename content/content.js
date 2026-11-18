@@ -100,6 +100,11 @@
     if (host.includes("tokmanni")) {
       return /\-\d{8,14}$/.test(location.pathname) || /\/tuote\//.test(location.pathname);
     }
+    if (host.includes("veikonkone")) {
+      const path = location.pathname.toLowerCase();
+      if (/search|haku|kategoria|category|catalog|tarjoukset|asiakaspalvelu|myymalat/i.test(path)) return false;
+      return /\/\d{8,14}-/.test(path) || !!document.querySelector("#product-addtocart-button, .product-info-main, .price-final_price");
+    }
     const path = location.pathname.toLowerCase();
     if (/search|haku|kategoria|category|catalog/.test(path)) return false;
     return !!document.querySelector("h1");
@@ -231,7 +236,7 @@
 
     const og = document.querySelector("meta[property='og:title']");
     if (og && og.content && og.content.length > 3) {
-      return og.content.replace(/\s*[-–|]\s*(proshop|gigantti|verkkokauppa|power|elisa|dna|telia|prisma|tokmanni|edullinen).*$/i, "").trim();
+      return og.content.replace(/\s*[-–|]\s*(proshop|gigantti|verkkokauppa|power|elisa|dna|telia|prisma|tokmanni|veikon\s*kone|veikonkone|edullinen).*$/i, "").trim();
     }
     return null;
   }
@@ -396,6 +401,19 @@
           const normEl = document.querySelector("[class*='normal-price'], [class*='original-price']");
           if (normEl) claimedNorm = parsePrice(normEl.textContent);
           anchor = priceEl.parentElement || priceEl;
+          return { storePrice, anchor, claimedNorm, claimedSavings };
+        }
+      }
+
+      // ──── 9. Veikonkone.fi ───────────────────────────────────
+      if (host.includes("veikonkone")) {
+        const priceBox = document.querySelector(".product-info-main .price-box, .price-box.price-final_price, .price-box");
+        const priceEl = priceBox ? priceBox.querySelector(".final-price .price, .special-price .price, .price-wrapper .price, .price") : document.querySelector(".price-box .price");
+        if (priceEl) {
+          storePrice = parsePrice(priceEl.textContent);
+          const oldPriceEl = priceBox ? priceBox.querySelector(".old-price .price") : document.querySelector(".old-price .price");
+          if (oldPriceEl) claimedNorm = parsePrice(oldPriceEl.textContent);
+          anchor = priceBox || priceEl.closest(".price-container") || priceEl.parentElement;
           return { storePrice, anchor, claimedNorm, claimedSavings };
         }
       }
@@ -941,6 +959,14 @@
       cards.forEach((c) => { if (!cardElements.includes(c)) cardElements.push(c); });
     }
 
+    if (host.includes("veikonkone")) {
+      const cards = document.querySelectorAll(".product-item, [class*='product-item'], [data-role='priceBox']");
+      cards.forEach((c) => {
+        const item = c.closest(".product-item, [class*='product-item']") || c;
+        if (!cardElements.includes(item)) cardElements.push(item);
+      });
+    }
+
     const pending = cardElements
       .filter((c) => !c.querySelector(".hf-listing-badge-container"))
       .slice(0, 20);
@@ -981,6 +1007,8 @@
       } else if (host.includes("elisa") || host.includes("dna") || host.includes("telia")) {
         priceAnchor = card.querySelector("[data-testid*='price'], [class*='Price'], [class*='price-container'], [class*='price']") ||
                       card.querySelector("button")?.parentElement;
+      } else if (host.includes("veikonkone")) {
+        priceAnchor = card.querySelector(".price-box, .price-final_price, .price-container, [class*='price']");
       }
 
       if (!priceAnchor) {
